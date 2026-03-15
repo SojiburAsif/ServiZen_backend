@@ -1,0 +1,43 @@
+-- CreateTable
+CREATE TABLE "Service" (
+    "id" SERIAL NOT NULL,
+    "title" VARCHAR(255) NOT NULL,
+    "description" TEXT NOT NULL,
+    "avgRating" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
+    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+    "deliveryTime" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Service_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "specialties" (
+    "id" TEXT NOT NULL,
+    "title" VARCHAR(100) NOT NULL,
+    "description" TEXT,
+    "icon" VARCHAR(255),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+    "deletedAt" TIMESTAMP(3),
+
+    CONSTRAINT "specialties_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "idx_service_is_deleted" ON "Service"("isDeleted");
+
+-- CreateIndex
+CREATE INDEX "idx_service_title" ON "Service"("title");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "specialties_title_key" ON "specialties"("title");
+
+-- CreateIndex
+CREATE INDEX "idx_specialty_isDeleted" ON "specialties"("isDeleted");
+
+-- CreateIndex
+CREATE INDEX "idx_specialty_title" ON "specialties"("title");
