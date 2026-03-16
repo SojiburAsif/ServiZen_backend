@@ -1,35 +1,73 @@
 
-import { UserStatus } from "../../../generated/prisma/browser";
+import { UserStatus } from "../../../generated/prisma/client";
 import { auth } from "../../lib/auth";
+import { prisma } from "../../lib/prisma";
 
 
 interface IRegisterPatientPayload {
     name: string;
     email: string;
     password: string;
+    profilePhoto?: string;
+    contactNumber?: string;
+    address?: string;
 }
 
 const registerUser = async (payload: IRegisterPatientPayload) => {
-    const { name, email, password } = payload;
+    const { name, email, password, profilePhoto, contactNumber, address } = payload;
 
-    const data = await auth.api.signUpEmail({
-        body: {
-            name,
-            email,
-            password,
-            //default values
-            // needsPasswordChange: false,
-            // role: Role.PATIENT
+    let createdUserId: string | null = null;
+    let createdClientId: string | null = null;
+
+    try {
+        const data = await auth.api.signUpEmail({
+            body: {
+                name,
+                email,
+                password,
+            }
+        });
+
+        if (!data.user) {
+            throw new Error("Failed to register patient");
         }
-    })
 
-    if (!data.user) {
-        throw new Error("Failed to register patient");
+        createdUserId = data.user.id;
+
+        const client = await prisma.$transaction(async (tx) => {
+            const newClient = await tx.client.create({
+                data: {
+                    name,
+                    email,
+                    userId: createdUserId!,
+                    ...(profilePhoto && { profilePhoto }),
+                    ...(contactNumber && { contactNumber }),
+                    ...(address && { address }),
+                },
+                include: {
+                    user: true,
+                },
+            });
+            return newClient;
+        });
+
+        createdClientId = client.id;
+        return client;
+    } catch (error) {
+        // Cleanup for partial create state.
+        if (createdClientId) {
+            await prisma.client.deleteMany({ where: { id: createdClientId } });
+        }
+
+        if (createdUserId) {
+            await prisma.user.deleteMany({ where: { id: createdUserId } });
+        }
+
+        throw error;
     }
-
-    return data;
-
 }
+
+
 
 interface ILoginUserPayload {
     email: string;
@@ -46,7 +84,7 @@ const loginUser = async (payload: ILoginUserPayload) => {
         }
     })
 
-    if (data.user.status === UserStatus.BlOCKED){
+    if (data.user.status === UserStatus.BLOCKED) {
         throw new Error("User is blocked");
     }
     if (data.user.isDeleted || data.user.status === UserStatus.DELETED) {
