@@ -8,10 +8,28 @@ model Specialty {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    isDeleted Boolean   @default(false)
-    deletedAt DateTime?
+    isDeleted           Boolean             @default(false)
+    deletedAt           DateTime?
+    providerSpecialties ProviderSpecialty[]
 
     @@index([isDeleted], name: "idx_specialty_isDeleted")
     @@index([title], name: "idx_specialty_title")
     @@map("specialties")
+}
+
+model ProviderSpecialty {
+    id String @id @default(uuid(7))
+
+    providerId  String
+    specialtyId String
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    provider  Provider  @relation(fields: [providerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    @@index([providerId], name: "idx_provider_specialty_providerId")
+    @@index([specialtyId], name: "idx_provider_specialty_specialtyId")
+    @@map("provider_specialties")
 }

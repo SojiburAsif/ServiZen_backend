@@ -1,0 +1,30 @@
+model Provider {
+    id String @id @default(uuid(7))
+
+    name               String
+    email              String    @unique
+    profilePhoto       String?
+    contactNumber      String?
+    address            String?
+    isDeleted          Boolean   @default(false)
+    deletedAt          DateTime?
+    createdAt          DateTime  @default(now())
+    updatedAt          DateTime  @updatedAt
+    bio                String?   @db.Text
+    registrationNumber String?   @unique
+    specialtyId        String?
+    experience         Int?
+    averageRating      Float     @default(0.0)
+    walletBalance      Float     @default(0.0)
+    totalEarned        Float     @default(0.0)
+    //relations
+
+    userId     String              @unique
+    user       User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    specialties ProviderSpecialty[]
+
+    @@index([email], name: "idx_provider_email")
+    @@index([isDeleted], name: "idx_provider_isDeleted")
+    @@map("Provider")
+}
+ 
