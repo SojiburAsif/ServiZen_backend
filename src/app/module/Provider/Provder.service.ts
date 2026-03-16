@@ -1,25 +1,243 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import status from "http-status";
+import { Prisma, Role, UserStatus } from "../../../generated/prisma/client";
+import AppError from "../../errorHelpers/AppError";
+import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
+import { ICreateProviderPayload  } from "./provider.interface";
 
-const getAllProviders = async () => {
-    const Providers = await prisma.provider.findMany({
-        include: {
-            user: true,
-            specialties: {
-                include: {
-                    specialty: true
+const providerSelect = {
+    id: true,
+    userId: true,
+    name: true,
+    email: true,
+    profilePhoto: true,
+    contactNumber: true,
+    address: true,
+    registrationNumber: true,
+    experience: true,
+    bio: true,
+    averageRating: true,
+    walletBalance: true,
+    totalEarned: true,
+    isDeleted: true,
+    deletedAt: true,
+    createdAt: true,
+    updatedAt: true,
+    user: {
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            Role: true,
+            status: true,
+            emailVerified: true,
+            image: true,
+            isDeleted: true,
+            deletedAt: true,
+            createdAt: true,
+            updatedAt: true,
+        },
+    },
+    specialties: {
+        select: {
+            specialty: {
+                select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    icon: true,
+                },
+            },
+        },
+    },
+} satisfies Prisma.ProviderSelect;
+
+const getExistingProviderOrThrow = async (id: string) => {
+    const provider = await prisma.provider.findFirst({
+        where: { id, isDeleted: false },
+        include: { user: true }
+    });
+    if (!provider) throw new AppError(status.NOT_FOUND, "Provider not found");
+    return provider;
+};
+
+const createProvider = async (payload: ICreateProviderPayload) => {
+    const { password, specialties, ...providerInfo } = payload;
+
+    // Conflict checks
+    const existingUser = await prisma.user.findUnique({ where: { email: providerInfo.email } });
+    if (existingUser) throw new AppError(status.CONFLICT, "User email already exists");
+
+    const existingReg = await prisma.provider.findFirst({ where: { registrationNumber: providerInfo.registrationNumber } });
+    if (existingReg) throw new AppError(status.CONFLICT, "Registration number already exists");
+
+    const userData = await auth.api.signUpEmail({
+        body: {
+            email: providerInfo.email,
+            password,
+            Role: Role.PROVIDER,
+            name: providerInfo.name,
+            needPasswordchange: true,
+        }
+    });
+
+    if (!userData.user) throw new AppError(status.BAD_REQUEST, "User creation failed");
+
+    try {
+        return await prisma.$transaction(async (tx) => {
+            const provider = await tx.provider.create({
+                data: {
+                    ...providerInfo,
+                    userId: userData.user.id,
+                }
+            });
+
+            if (specialties && specialties.length > 0) {
+                await tx.providerSpecialty.createMany({
+                    data: specialties.map((sId: string) => ({ providerId: provider.id, specialtyId: sId }))
+                });
+            }
+
+            return tx.provider.findUniqueOrThrow({ where: { id: provider.id }, select: providerSelect });
+        });
+    } catch (error) {
+        await prisma.user.deleteMany({ where: { id: userData.user.id } });
+        throw error;
+    }
+};
+
+const getAllProviders = async (options: any = {}) => {
+    const { page = 1, limit = 10, ...filterData } = options;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where: Prisma.ProviderWhereInput = { 
+        isDeleted: false,
+        ...filterData 
+    };
+
+    const [data, total] = await Promise.all([
+        prisma.provider.findMany({
+            where,
+            skip,
+            take: Number(limit),
+            orderBy: { createdAt: "desc" },
+            select: providerSelect
+        }),
+        prisma.provider.count({ where })
+    ]);
+
+    return {
+        meta: {
+            page: Number(page),
+            limit: Number(limit),
+            total
+        },
+        data
+    };
+};
+
+const getProviderById = async (id: string) => {
+    const provider = await prisma.provider.findFirst({
+        where: { id, isDeleted: false },
+        select: providerSelect
+    });
+    if (!provider) throw new AppError(status.NOT_FOUND, "Provider not found");
+    return provider;
+};
+
+const updateProvider = async (id: string, payload: any) => {
+    await getExistingProviderOrThrow(id);
+    
+    
+    const { provider: providerData, specialties } = payload;
+
+    await prisma.$transaction(async (tx) => {
+     
+        if (providerData) {
+            await tx.provider.update({
+                where: { id },
+                data: providerData
+            });
+        }
+
+       
+        if (specialties && specialties.length > 0) {
+            for (const item of specialties) {
+                const { specialtyId, shouldDelete } = item;
+                
+                if (shouldDelete) {
+                    await tx.providerSpecialty.deleteMany({ 
+                        where: {
+                            providerId: id,
+                            specialtyId: specialtyId
+                        }
+                    });
+                } else {
+                    const existingProviderSpecialty = await tx.providerSpecialty.findFirst({
+                        where: {
+                            providerId: id,
+                            specialtyId,
+                        },
+                        select: {
+                            id: true,
+                        },
+                    });
+
+                    if (!existingProviderSpecialty) {
+                        await tx.providerSpecialty.create({
+                            data: {
+                                providerId: id,
+                                specialtyId,
+                            },
+                        });
+                    }
                 }
             }
         }
-    })
-    return Providers;
-}
+    });
 
-// const getProviderById = async (id: string) => {}
+    return getProviderById(id);
+};
 
-// const updateProvider = async (id: string, payload: IUpdateProviderPayload) => {}
+const deleteProvider = async (id: string) => {
+    const existingProvider = await getExistingProviderOrThrow(id);
+    const deletedAt = new Date();
 
-// const deleteProvider = async (id: string) => {} //soft delete
+    await prisma.$transaction(async (tx) => {
+        // Soft delete provider
+        await tx.provider.update({
+            where: { id },
+            data: { isDeleted: true, deletedAt }
+        });
+
+        // Soft delete user
+        await tx.user.update({
+            where: { id: existingProvider.userId },
+            data: { 
+                status: UserStatus.DELETED, 
+                isDeleted: true, 
+                deletedAt 
+            }
+        });
+
+        // সেশন ডিলিট করা (ডক্টর সার্ভিসের মতো)
+        await tx.session?.deleteMany({
+            where: { userId: existingProvider.userId }
+        });
+
+        await tx.providerSpecialty.deleteMany({
+            where: { providerId: id }
+        });
+    });
+
+    return { message: "Provider deleted successfully" };
+};
 
 export const ProviderService = {
+    createProvider,
     getAllProviders,
-}
+    getProviderById,
+    updateProvider,
+    deleteProvider,
+};

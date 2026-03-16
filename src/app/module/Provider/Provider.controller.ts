@@ -5,6 +5,20 @@ import { sendResponse } from "../../shared/sendResponse";
 import { ProviderService } from "./provder.service";
 
 
+const createProvider = catchAsync(
+    async (req: Request, res: Response) => {
+
+        const result = await ProviderService.createProvider(req.body);
+
+        sendResponse(res, {
+            httpStatusCode: status.CREATED,
+            success: true,
+            message: "Provider created successfully",
+            data: result,
+        })
+    }
+)
+
 
 const getAllProviders = catchAsync(
     async (req: Request, res: Response) => {
@@ -20,13 +34,52 @@ const getAllProviders = catchAsync(
     }
 )
 
-// const getProviderById = catchAsync(
-//const updateProvider = catchAsync(
-//const deleteProvider = catchAsync(
+const getProviderById = catchAsync(
+    async (req: Request, res: Response) => {
+
+        const result = await ProviderService.getProviderById(req.params.id as string);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "Provider fetched successfully",
+            data: result,
+        })
+    }
+)
+
+const updateProvider = catchAsync(
+    async (req: Request, res: Response) => {
+
+        const result = await ProviderService.updateProvider(req.params.id as string, req.body);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "Provider updated successfully",
+            data: result,
+        })
+    }
+)
+
+const deleteProvider = catchAsync(
+    async (req: Request, res: Response) => {
+
+        const result = await ProviderService.deleteProvider(req.params.id as string);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "Provider deleted successfully",
+            data: result,
+        })
+    }
+)
 
 export const ProviderController = {
+    createProvider,
     getAllProviders,
-    // getProviderById,
-    // updateProvider,
-    // deleteProvider,
+    getProviderById,
+    updateProvider,
+    deleteProvider,
 };
