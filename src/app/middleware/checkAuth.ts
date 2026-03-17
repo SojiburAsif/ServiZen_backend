@@ -61,6 +61,12 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
                 if (authRoles.length > 0 && !authRoles.includes(user.Role)) {
                     throw new AppError(status.FORBIDDEN, 'Forbidden access! You do not have permission to access this resource.');
                 }
+
+                req.user = {
+                    userId: user.id,
+                    role: user.Role,
+                    email: user.email,
+                };
             }
 
             const accessToken = CookieUtils.getCookie(req, 'accessToken');

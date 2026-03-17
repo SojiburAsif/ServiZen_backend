@@ -4,6 +4,7 @@ import { sendResponse } from "../../shared/sendResponse";
 import { AuthService } from "./auth.service";
 import status from "http-status";
 import { tokenUtils } from "../../utils/token";
+import AppError from "../../errorHelpers/AppError";
 
 const registerPatient = catchAsync(
     async (req: Request, res: Response) => {
@@ -12,7 +13,7 @@ const registerPatient = catchAsync(
         console.log(payload);
 
         const result = await AuthService.registerUser(payload);
-        const { accessToken, refreshToken, token , ...rest} = result;
+        const { accessToken, refreshToken, token, ...rest } = result;
 
         tokenUtils.setAccessTokenCookie(res, accessToken);
         tokenUtils.setRefreshTokenCookie(res, refreshToken);
@@ -26,7 +27,7 @@ const registerPatient = catchAsync(
                 token,
                 accessToken,
                 refreshToken,
-                 ...rest
+                ...rest
             },
         })
     }
@@ -37,7 +38,7 @@ const loginUser = catchAsync(
         const payload = req.body;
         const result = await AuthService.loginUser(payload);
 
-        const { accessToken, refreshToken, token , ...rest} = result;
+        const { accessToken, refreshToken, token, ...rest } = result;
 
         tokenUtils.setAccessTokenCookie(res, accessToken);
         tokenUtils.setRefreshTokenCookie(res, refreshToken);
@@ -52,13 +53,58 @@ const loginUser = catchAsync(
                 accessToken,
                 refreshToken,
                 token,
-                 ...rest
+                ...rest
             },
         })
     }
 )
 
+const getLoggedInUser = catchAsync(
+    async (req: Request, res: Response) => {
+        const user = req.user;
+
+
+        const result = await AuthService.getLoggedInUser(user);
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "Logged in user retrieved successfully",
+            data: result,
+        })
+    }
+)
+
+const getNewToken = catchAsync(
+    async (req: Request, res: Response) => {
+        const refreshToken = req.cookies.refreshToken;
+        const betterAuthSessionToken = req.cookies["better-auth.session_token"];
+        if (!refreshToken) {
+            throw new AppError(status.UNAUTHORIZED, "Refresh token is missing");
+        }
+        const result = await AuthService.getNewToken(refreshToken, betterAuthSessionToken);
+
+        const { accessToken, refreshToken: newRefreshToken, sessionToken } = result;
+
+        tokenUtils.setAccessTokenCookie(res, accessToken);
+        tokenUtils.setRefreshTokenCookie(res, newRefreshToken);
+        tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "New tokens generated successfully",
+            data: {
+                accessToken,
+                refreshToken: newRefreshToken,
+                sessionToken,
+            },
+        });
+    }
+)
+
 export const AuthController = {
     registerPatient,
-    loginUser
+    loginUser,
+    getLoggedInUser,
+    getNewToken
 };
