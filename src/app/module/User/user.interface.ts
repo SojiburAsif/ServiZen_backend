@@ -11,3 +11,14 @@ export interface ICreateProviderPayload {
     bio?: string;
     specialties: string[];
 }
+
+
+export interface ICreateAdminPayload {
+    password: string;
+    name: string;
+    email: string;
+    profilePhoto?: string;
+    contactNumber?: string;
+    address?: string;
+    role: "ADMIN";
+}

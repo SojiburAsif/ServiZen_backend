@@ -133,6 +133,10 @@ const updateProviderValidationSchema = z.object({
 	body: updateProviderBodySchema,
 });
 
+const updateMyProfileValidationSchema = z.object({
+	body: updateProviderBodySchema,
+});
+
 const deleteProviderValidationSchema = z.object({
 	params: providerIdParamSchema,
 });
@@ -142,5 +146,6 @@ export const ProviderValidation = {
 	getAllProvidersValidationSchema,
 	getProviderValidationSchema,
 	updateProviderValidationSchema,
+	updateMyProfileValidationSchema,
 	deleteProviderValidationSchema,
 };

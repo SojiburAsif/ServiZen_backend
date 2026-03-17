@@ -23,12 +23,26 @@ const createProvider = catchAsync(
 const getAllProviders = catchAsync(
     async (req: Request, res: Response) => {
 
-        const result = await ProviderService.getAllProviders();
+        const result = await ProviderService.getAllProviders(req.query);
 
         sendResponse(res, {
             httpStatusCode: status.OK,
             success: true,
             message: "Providers fetched successfully",
+            data: result,
+        })
+    }
+)
+
+const getMyProfile = catchAsync(
+    async (req: Request, res: Response) => {
+
+        const result = await ProviderService.getMyProfile(req.user);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "Provider profile fetched successfully",
             data: result,
         })
     }
@@ -62,6 +76,20 @@ const updateProvider = catchAsync(
     }
 )
 
+const updateMyProfile = catchAsync(
+    async (req: Request, res: Response) => {
+
+        const result = await ProviderService.updateMyProfile(req.user, req.body);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "Provider profile updated successfully",
+            data: result,
+        })
+    }
+)
+
 const deleteProvider = catchAsync(
     async (req: Request, res: Response) => {
 
@@ -79,7 +107,9 @@ const deleteProvider = catchAsync(
 export const ProviderController = {
     createProvider,
     getAllProviders,
+    getMyProfile,
     getProviderById,
     updateProvider,
+    updateMyProfile,
     deleteProvider,
 };

@@ -99,7 +99,7 @@ export const auth = betterAuth({
                         }
                     })
 
-                    if (user && !user.emailVerified) {
+                    if (user && !user.emailVerified && user.Role !== Role.ADMIN) {
                         sendEmail({
                             to: email,
                             subject: "Verify your email",

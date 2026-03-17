@@ -2,11 +2,12 @@
 import status from "http-status";
 import { Prisma, Role, UserStatus } from "../../../generated/prisma/client";
 import AppError from "../../errorHelpers/AppError";
+import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import { ICreateProviderPayload  } from "./provider.interface";
 
-const providerSelect = {
+const providerDetailsSelect = {
     id: true,
     userId: true,
     name: true,
@@ -39,6 +40,36 @@ const providerSelect = {
             updatedAt: true,
         },
     },
+    specialties: {
+        select: {
+            specialty: {
+                select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    icon: true,
+                },
+            },
+        },
+    },
+} satisfies Prisma.ProviderSelect;
+
+const providerListSelect = {
+    id: true,
+    userId: true,
+    name: true,
+    email: true,
+    profilePhoto: true,
+    contactNumber: true,
+    address: true,
+    registrationNumber: true,
+    experience: true,
+    bio: true,
+    averageRating: true,
+    isDeleted: true,
+    deletedAt: true,
+    createdAt: true,
+    updatedAt: true,
     specialties: {
         select: {
             specialty: {
@@ -99,7 +130,7 @@ const createProvider = async (payload: ICreateProviderPayload) => {
                 });
             }
 
-            return tx.provider.findUniqueOrThrow({ where: { id: provider.id }, select: providerSelect });
+            return tx.provider.findUniqueOrThrow({ where: { id: provider.id }, select: providerDetailsSelect });
         });
     } catch (error) {
         await prisma.user.deleteMany({ where: { id: userData.user.id } });
@@ -122,7 +153,7 @@ const getAllProviders = async (options: any = {}) => {
             skip,
             take: Number(limit),
             orderBy: { createdAt: "desc" },
-            select: providerSelect
+            select: providerListSelect
         }),
         prisma.provider.count({ where })
     ]);
@@ -140,9 +171,25 @@ const getAllProviders = async (options: any = {}) => {
 const getProviderById = async (id: string) => {
     const provider = await prisma.provider.findFirst({
         where: { id, isDeleted: false },
-        select: providerSelect
+        select: providerDetailsSelect
     });
     if (!provider) throw new AppError(status.NOT_FOUND, "Provider not found");
+    return provider;
+};
+
+const getMyProfile = async (user: IRequestUser) => {
+    const provider = await prisma.provider.findFirst({
+        where: {
+            userId: user.userId,
+            isDeleted: false,
+        },
+        select: providerDetailsSelect,
+    });
+
+    if (!provider) {
+        throw new AppError(status.NOT_FOUND, "Provider profile not found");
+    }
+
     return provider;
 };
 
@@ -234,10 +281,35 @@ const deleteProvider = async (id: string) => {
     return { message: "Provider deleted successfully" };
 };
 
+const updateMyProfile = async (user: IRequestUser, payload: Record<string, unknown>) => {
+    const provider = await prisma.provider.findFirst({
+        where: {
+            userId: user.userId,
+            isDeleted: false,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!provider) {
+        throw new AppError(status.NOT_FOUND, "Provider profile not found");
+    }
+
+    await prisma.provider.update({
+        where: { id: provider.id },
+        data: payload,
+    });
+
+    return getProviderById(provider.id);
+};
+
 export const ProviderService = {
     createProvider,
     getAllProviders,
+    getMyProfile,
     getProviderById,
     updateProvider,
+    updateMyProfile,
     deleteProvider,
 };
