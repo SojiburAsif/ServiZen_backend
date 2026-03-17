@@ -7,7 +7,7 @@ import { Role } from "../../../generated/prisma/enums";
 
 const router = Router()
 
-router.post("/register", validateRequest(AuthValidation.registerUserValidationSchema), AuthController.registerPatient)
+router.post("/register", validateRequest(AuthValidation.registerUserValidationSchema), AuthController.registerClient)
 
 
 router.post("/login", validateRequest(AuthValidation.loginUserValidationSchema), AuthController.loginUser)

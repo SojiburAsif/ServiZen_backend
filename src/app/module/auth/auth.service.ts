@@ -11,6 +11,34 @@ import { jwtUtils } from "../../utils/jwt";
 import { envVars } from "../../../config/env";
 import { JwtPayload } from "jsonwebtoken";
 
+const getUserAndValidateNotGoogleAuth = async (email: string) => {
+    const user = await prisma.user.findUnique({
+        where: {
+            email,
+        }
+    });
+
+    if (!user) {
+        throw new AppError(status.NOT_FOUND, "User not found");
+    }
+
+    const googleAccount = await prisma.account.findFirst({
+        where: {
+            userId: user.id,
+            providerId: "google",
+        }
+    });
+
+    if (googleAccount) {
+        throw new AppError(
+            status.BAD_REQUEST,
+            "Google login user cannot use this action. Please continue with Google sign in."
+        );
+    }
+
+    return user;
+}
+
 
 
 
@@ -308,7 +336,9 @@ const logoutUser = async (sessionToken : string) => {
 
     return result;
 }
+
 const verifyEmail = async (email : string, otp : string) => {
+    await getUserAndValidateNotGoogleAuth(email);
 
     const result = await auth.api.verifyEmailOTP({
         body:{
@@ -329,17 +359,8 @@ const verifyEmail = async (email : string, otp : string) => {
     }
 }
 
-
 const forgetPassword = async (email : string) => {
-    const isUserExist = await prisma.user.findUnique({
-        where : {
-            email,
-        }
-    })
-
-    if(!isUserExist){
-        throw new AppError(status.NOT_FOUND, "User not found");
-    }
+    const isUserExist = await getUserAndValidateNotGoogleAuth(email);
 
     if(!isUserExist.emailVerified){
         throw new AppError(status.BAD_REQUEST, "Email not verified");
@@ -357,15 +378,7 @@ const forgetPassword = async (email : string) => {
 }
 
 const resetPassword = async (email : string, otp : string, newPassword : string) => {
-    const isUserExist = await prisma.user.findUnique({
-        where: {
-            email,
-        }
-    })
-
-    if (!isUserExist) {
-        throw new AppError(status.NOT_FOUND, "User not found");
-    }
+    const isUserExist = await getUserAndValidateNotGoogleAuth(email);
 
     if (!isUserExist.emailVerified) {
         throw new AppError(status.BAD_REQUEST, "Email not verified");
@@ -401,30 +414,42 @@ const resetPassword = async (email : string, otp : string, newPassword : string)
     })
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const googleLoginSuccess = async (session : Record<string, any>) =>{
-    const isPatientExists = await prisma.client.findUnique({
+const googleLoginSuccessF = async (session : Record<string, any>) =>{
+    if (!session || !session.user || !session.user.id) {
+        throw new AppError(status.UNAUTHORIZED, "Invalid session");
+    }
+
+    const googleAccount = await prisma.account.findFirst({
+        where: {
+            userId: session.user.id,
+            providerId: "google",
+        }
+    });
+
+    if (!googleAccount) {
+        throw new AppError(status.BAD_REQUEST, "Google account not linked");
+    }
+
+    const isclientExists = await prisma.client.findUnique({
         where : {
             userId : session.user.id,
         }
     })
 
-    if(!isPatientExists){
+    if(!isclientExists){
         await prisma.client.create({
             data : {
                 userId : session.user.id,
                 name : session.user.name,
                 email : session.user.email,
             }
-        
         })
     }
-
     const accessToken = tokenUtils.getAccessToken({
         userId: session.user.id,
         role: session.user.role,
         name: session.user.name,
     });
-
     const refreshToken = tokenUtils.getRefreshToken({
         userId: session.user.id,
         role: session.user.role,
@@ -448,5 +473,5 @@ export const AuthService = {
     verifyEmail,
     forgetPassword,
     resetPassword,
-    googleLoginSuccess,
+    googleLoginSuccessF,
 };

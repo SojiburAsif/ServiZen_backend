@@ -88,5 +88,4 @@ const loadEnvVariables = (): EnvConfig => {
 
     }
 }
-
 export const envVars = loadEnvVariables();

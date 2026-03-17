@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<title>ServiZen - Google Login</title>
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			font-family: Arial, Helvetica, sans-serif;
+			color: #101010;
+			background: radial-gradient(circle at 15% 10%, #dff8e7 0%, #edf4ee 45%, #e4ece6 100%);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 18px;
+		}
+
+		.card {
+			width: 100%;
+			max-width: 520px;
+			border-radius: 20px;
+			overflow: hidden;
+			border: 1px solid #cde4d3;
+			background: #ffffff;
+			box-shadow: 0 14px 35px rgba(0, 0, 0, 0.1);
+		}
+
+		.top {
+			background: linear-gradient(135deg, #0f6d3d 0%, #081f15 100%);
+			color: #fff;
+			text-align: center;
+			padding: 24px 24px 20px;
+		}
+
+		.brand {
+			margin: 0;
+			font-size: 30px;
+			font-weight: 800;
+			letter-spacing: 0.4px;
+		}
+
+		.sub {
+			margin: 10px 0 0;
+			font-size: 13px;
+			opacity: 0.9;
+		}
+
+		.content {
+			padding: 28px 26px 24px;
+			text-align: center;
+		}
+
+		.title {
+			margin: 0;
+			font-size: 24px;
+			color: #0f6d3d;
+		}
+
+		.desc {
+			margin: 14px 0 0;
+			color: #29362d;
+			font-size: 15px;
+			line-height: 1.7;
+		}
+
+		.error-box {
+			display: none;
+			margin-top: 14px;
+			padding: 12px 14px;
+			border-radius: 10px;
+			font-size: 13px;
+			line-height: 1.6;
+			text-align: left;
+			background: #fff1f1;
+			border: 1px solid #f4b6b6;
+			color: #7a1f1f;
+		}
+
+		.google-btn {
+			margin-top: 22px;
+			width: 100%;
+			border: 0;
+			border-radius: 12px;
+			padding: 14px 16px;
+			font-size: 16px;
+			font-weight: 700;
+			color: #d9ffe9;
+			background: #0b0b0b;
+			cursor: pointer;
+			transition: transform 0.2s ease, box-shadow 0.2s ease;
+			box-shadow: 0 7px 16px rgba(0, 0, 0, 0.15);
+		}
+
+		.google-btn:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+		}
+
+		.google-btn span {
+			margin-right: 8px;
+			color: #58d98a;
+			font-weight: 800;
+		}
+
+		.timer {
+			margin-top: 14px;
+			font-size: 13px;
+			color: #4a5d4f;
+		}
+
+		.safe-link {
+			margin-top: 14px;
+			word-break: break-all;
+			font-size: 12px;
+			color: #365643;
+			background: #f2faf5;
+			border: 1px solid #d6ebdc;
+			border-radius: 10px;
+			padding: 10px;
+		}
+
+		.safe-link a {
+			color: #0f6d3d;
+			text-decoration: none;
+			font-weight: 700;
+		}
+
+		.footer {
+			border-top: 1px dashed #d7e7db;
+			padding: 16px 24px 22px;
+			text-align: center;
+			font-size: 12px;
+			color: #5d6b62;
+		}
+
+		@media (max-width: 520px) {
+			.top,
+			.content,
+			.footer {
+				padding-left: 16px;
+				padding-right: 16px;
+			}
+
+			.brand {
+				font-size: 26px;
+			}
+
+			.title {
+				font-size: 21px;
+			}
+		}
+	</style>
+</head>
+<body data-callback-url="<%= encodeURIComponent(callbackURL || '') %>" data-better-auth-url="<%= encodeURIComponent(betterAuthUrl || '') %>">
+	<div class="card">
+		<div class="top">
+			<h1 class="brand">ServiZen</h1>
+			<p class="sub">Google Account Authentication</p>
+		</div>
+
+		<div class="content">
+			<h2 class="title">Continue With Google</h2>
+			<p class="desc">
+				You are being redirected to secure Google sign-in. If it does not open automatically,
+				click the button below.
+			</p>
+
+			<div id="errorBox" class="error-box" role="alert" aria-live="polite"></div>
+
+			<button id="googleSignIn" class="google-btn" type="button">
+				<span>G</span> Login with Google
+			</button>
+
+			<p id="timerText" class="timer">Redirecting in 3 seconds...</p>
+
+			<div class="safe-link">
+				If needed, open manually:
+				<a id="manualLink" href="#" rel="noopener noreferrer">Open Google Login</a>
+			</div>
+		</div>
+
+		<div class="footer">
+			Secure sign-in powered by ServiZen
+		</div>
+	</div>
+
+	<script>
+		(() => {
+			const searchParams = new URLSearchParams(window.location.search);
+			const errorCode = searchParams.get("error") || "";
+			const callbackURL = decodeURIComponent(document.body.getAttribute("data-callback-url") || "");
+			const betterAuthUrl = decodeURIComponent(document.body.getAttribute("data-better-auth-url") || "");
+			const hasRequiredConfig = Boolean(callbackURL && betterAuthUrl);
+			const signInEndpoint = `${betterAuthUrl}/api/auth/sign-in/social`;
+
+			let timer = 3;
+			const timerText = document.getElementById("timerText");
+			const manualLink = document.getElementById("manualLink");
+			const googleSignIn = document.getElementById("googleSignIn");
+			const errorBox = document.getElementById("errorBox");
+
+			const errorMap = {
+				oauth_failed: "Google login failed. Please try again.",
+				invalid_callback: "Login callback URL is invalid. Please contact support.",
+				no_session_found: "Session not found. Please login again.",
+				no_user_found: "User profile not found for this Google account.",
+				access_denied: "Google login was canceled or access was denied."
+			};
+
+			const showError = (message) => {
+				if (!errorBox) {
+					return;
+				}
+
+				errorBox.style.display = "block";
+				errorBox.textContent = message;
+			};
+
+			const goToGoogle = async () => {
+				if (!hasRequiredConfig) {
+					return;
+				}
+
+				if (timerText) {
+					timerText.textContent = "Connecting to Google...";
+				}
+
+				try {
+					const response = await fetch(signInEndpoint, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json"
+						},
+						credentials: "include",
+						body: JSON.stringify({
+							provider: "google",
+							callbackURL
+						})
+					});
+
+					const data = await response.json();
+
+					if (data?.url) {
+						window.location.href = data.url;
+						return;
+					}
+
+					showError("Error occurred while redirecting to Google. Please try again later.");
+					if (timerText) {
+						timerText.textContent = "Auto redirect stopped.";
+					}
+				} catch (error) {
+					showError(`Error occurred while redirecting to Google. Please try again later. ${error?.message || ""}`);
+					if (timerText) {
+						timerText.textContent = "Auto redirect stopped.";
+					}
+				}
+			};
+
+			if (errorCode) {
+				showError(errorMap[errorCode] || "Login failed. Please try again.");
+			}
+
+			if (!hasRequiredConfig) {
+				showError("Google login configuration is missing. Please contact support.");
+			}
+
+			if (googleSignIn) {
+				googleSignIn.addEventListener("click", (event) => {
+					event.preventDefault();
+					goToGoogle();
+				});
+			}
+
+			if (manualLink) {
+				manualLink.href = "#";
+				manualLink.addEventListener("click", (event) => {
+					event.preventDefault();
+					goToGoogle();
+				});
+			}
+
+			if (errorCode || !hasRequiredConfig) {
+				if (timerText) {
+					timerText.textContent = "Auto redirect paused.";
+				}
+				return;
+			}
+
+			const interval = setInterval(() => {
+				timer -= 1;
+
+				if (timerText && timer > 0) {
+					timerText.textContent = `Redirecting in ${timer} seconds...`;
+				}
+
+				if (timer <= 0) {
+					clearInterval(interval);
+					if (timerText) {
+						timerText.textContent = "Redirecting now...";
+					}
+					goToGoogle();
+				}
+			}, 1000);
+		})();
+	</script>
+</body>
+</html>

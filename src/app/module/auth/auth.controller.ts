@@ -9,7 +9,7 @@ import { CookieUtils } from "../../utils/cookie";
 import { envVars } from "../../../config/env";
 import { auth } from "../../lib/auth";
 
-const registerPatient = catchAsync(
+const registerClient = catchAsync(
     async (req: Request, res: Response) => {
         const payload = req.body;
 
@@ -192,6 +192,8 @@ const resetPassword = catchAsync(
         });
     }
 )
+
+
 const googleLogin = catchAsync((req: Request, res: Response) => {
     const redirectPath = req.query.redirect || "/dashboard";
 
@@ -230,7 +232,7 @@ const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
         return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_user_found`);
     }
 
-    const result = await AuthService.googleLoginSuccess(session);
+    const result = await AuthService.googleLoginSuccessF(session);
 
     const {accessToken, refreshToken} = result;
 
@@ -251,7 +253,7 @@ const handleOAuthError = catchAsync((req: Request, res: Response) => {
 
 
 export const AuthController = {
-    registerPatient,
+    registerClient,
     loginUser,
     getLoggedInUser,
     getNewToken,
