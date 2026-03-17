@@ -13,6 +13,14 @@ router.post("/register", validateRequest(AuthValidation.registerUserValidationSc
 router.post("/login", validateRequest(AuthValidation.loginUserValidationSchema), AuthController.loginUser)
 
 router.get("/me", checkAuth(Role.USER, Role.ADMIN , Role.PROVIDER), AuthController.getLoggedInUser)
-export const AuthRoutes = router;
+
 
 router.post("/refresh-token", AuthController.getNewToken)
+
+router.post("/change-password", checkAuth(Role.USER, Role.ADMIN , Role.PROVIDER),  AuthController.changePassword)
+
+
+router.post("/logout", checkAuth(Role.USER, Role.ADMIN , Role.PROVIDER), AuthController.logoutUser)
+
+
+export const AuthRoutes = router;
