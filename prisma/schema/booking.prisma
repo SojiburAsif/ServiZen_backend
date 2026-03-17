@@ -1,0 +1,34 @@
+// --- বুকিং মডেল ---
+model Booking {
+    id            String        @id @default(uuid(7))
+    bookingDate   DateTime
+    bookingTime   String
+    status        BookingStatus @default(PENDING)
+    paymentStatus PaymentStatus @default(UNPAID)
+    totalAmount   Float
+
+    address   String  @db.Text
+    city      String?
+    latitude  Float?
+    longitude Float?
+
+    // ১টি বুকিংয়ের ১টিই পেমেন্ট হবে (1:1 Relation)
+    payment   Payment? 
+
+    clientId  String
+    client    Client   @relation(fields: [clientId], references: [id])
+
+    providerId String
+    provider   Provider @relation(fields: [providerId], references: [id])
+
+    serviceId String
+    service   Service  @relation(fields: [serviceId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([clientId])
+    @@index([providerId])
+    @@index([serviceId])
+    @@map("bookings")
+}

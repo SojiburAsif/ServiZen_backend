@@ -11,6 +11,7 @@ model Specialty {
     isDeleted           Boolean             @default(false)
     deletedAt           DateTime?
     providerSpecialties ProviderSpecialty[]
+    services            Service[]
 
     @@index([isDeleted], name: "idx_specialty_isDeleted")
     @@index([title], name: "idx_specialty_title")
@@ -26,9 +27,11 @@ model ProviderSpecialty {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+
     provider  Provider  @relation(fields: [providerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
     specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+    @@unique([providerId, specialtyId])
     @@index([providerId], name: "idx_provider_specialty_providerId")
     @@index([specialtyId], name: "idx_provider_specialty_specialtyId")
     @@map("provider_specialties")

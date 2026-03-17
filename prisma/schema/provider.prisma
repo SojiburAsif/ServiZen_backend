@@ -12,7 +12,7 @@ model Provider {
     updatedAt          DateTime  @updatedAt
     bio                String?   @db.Text
     registrationNumber String?   @unique
-    specialtyId        String?
+    // specialtyId String? // removed — specialties are managed via ProviderSpecialty join table
     experience         Int?
     averageRating      Float     @default(0.0)
     walletBalance      Float     @default(0.0)
@@ -22,6 +22,10 @@ model Provider {
     userId     String              @unique
     user       User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
     specialties ProviderSpecialty[]
+    services    Service[]
+    bookings    Booking[]
+    reviews     Review[]
+
 
     @@index([email], name: "idx_provider_email")
     @@index([isDeleted], name: "idx_provider_isDeleted")

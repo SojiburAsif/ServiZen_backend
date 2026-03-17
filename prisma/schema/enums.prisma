@@ -10,3 +10,16 @@ enum UserStatus {
     DELETED
 }
 
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  WORKING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
