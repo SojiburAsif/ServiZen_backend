@@ -1,4 +1,4 @@
-// --- বুকিং মডেল ---
+
 model Booking {
     id            String        @id @default(uuid(7))
     bookingDate   DateTime
@@ -12,7 +12,6 @@ model Booking {
     latitude  Float?
     longitude Float?
 
-    // ১টি বুকিংয়ের ১টিই পেমেন্ট হবে (1:1 Relation)
     payment   Payment? 
 
     clientId  String

@@ -5,6 +5,7 @@ import { UserRoutes } from "../module/User/user.route";
 import { ProviderRoutes } from "../module/Provider/provider.route";
 import { ServiceRoutes } from "../module/services/services.route";
 import { ReviewRoutes } from "../module/review/review.route";
+import { BookingRoutes } from "../module/booking/booking.route";
 
  
 
@@ -15,4 +16,6 @@ router.use("/users", UserRoutes);
 router.use("/providers", ProviderRoutes);
 router.use("/services", ServiceRoutes);
 router.use("/reviews", ReviewRoutes);
+router.use("/bookings", BookingRoutes);
+
 export const IndexRoutes = router;

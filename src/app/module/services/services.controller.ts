@@ -13,8 +13,7 @@ const createservice = catchAsync(async (req: Request, res: Response) => {
         message: "Service created successfully",
         data: result,
     })
-}
-)
+})
 
 const getServices = catchAsync(async (req: Request, res: Response) => {
     const result = await ServicesService.getAllServices(req.query);
@@ -40,7 +39,6 @@ const getServiceById = catchAsync(async (req: Request, res: Response) => {
 
 const updateService = catchAsync(async (req: Request, res: Response) => {
     const result = await ServicesService.updateService(req.params.id as string, req.body, req.user);
-
     sendResponse(res, {
         httpStatusCode: status.OK,
         success: true,
@@ -60,11 +58,11 @@ const deleteService = catchAsync(async (req: Request, res: Response) => {
     })
 })
 
+
 export const ServicesController = {
     createservice,
     getServices,
     getServiceById,
     updateService,
     deleteService,
-
 }

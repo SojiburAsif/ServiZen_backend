@@ -28,6 +28,10 @@ interface EnvConfig {
     GOOGLE_CLIENT_SECRET: string;
     GOOGLE_CALLBACK_URL: string;
     FRONTEND_URL: string;
+    STRIPE: {
+        STRIPE_SECRET_KEY: string;
+        STRIPE_WEBHOOK_SECRET: string;
+    }
 
 
 }
@@ -50,7 +54,13 @@ const loadEnvVariables = (): EnvConfig => {
         'EMAIL_SENDER_SMTP_PASS',
         'EMAIL_SENDER_SMTP_HOST',
         'EMAIL_SENDER_SMTP_PORT',
-        'EMAIL_SENDER_SMTP_FROM'
+        'EMAIL_SENDER_SMTP_FROM',
+        'GOOGLE_CLIENT_ID',
+        'GOOGLE_CLIENT_SECRET',
+        'GOOGLE_CALLBACK_URL',
+        'FRONTEND_URL',
+        'STRIPE_SECRET_KEY',
+        'STRIPE_WEBHOOK_SECRET'
 
 
     ]
@@ -85,6 +95,10 @@ const loadEnvVariables = (): EnvConfig => {
         GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET as string,
         GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL as string,
         FRONTEND_URL: process.env.FRONTEND_URL as string,
+        STRIPE: {
+            STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY as string,
+            STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET as string
+        }
 
     }
 }

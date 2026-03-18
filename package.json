@@ -11,7 +11,8 @@
     "lint": "eslint ./src/**/*",
     "migrate": "prisma migrate dev",
     "generate": "prisma generate",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "stripe:Webhook": "stripe listen --forward-to localhost:4242/webhook"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +33,7 @@
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.2",
     "pg": "^8.20.0",
+    "stripe": "^20.4.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

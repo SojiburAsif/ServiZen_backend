@@ -2,16 +2,17 @@ model Payment {
     id                 String        @id @default(uuid(7))
     amount             Float
     transactionId      String        @unique
+    stripeEventId      String?       @unique
     status             PaymentStatus @default(UNPAID)
     paymentGatewayData Json?
     createdAt          DateTime      @default(now())
     updatedAt          DateTime      @updatedAt
 
- 
     bookingId String  @unique
     booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
     @@index([bookingId])
     @@index([transactionId])
+    @@index([stripeEventId])
     @@map("payments")
 }
