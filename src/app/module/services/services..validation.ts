@@ -9,8 +9,7 @@ const createServiceZodSchema = z.object({
     description: z.string().trim().min(1, "Description is required"),
     price: z.coerce.number().min(0, "Price cannot be negative"),
     duration: z.string().trim().max(100, "Duration cannot exceed 100 characters").optional(),
-    specialtyId: z.string().uuid("Specialty id must be a valid UUID"),
-    providerId: z.string().uuid("Provider id must be a valid UUID").optional(),
+    specialtyId: z.string().uuid("Specialty id must be a valid UUID").optional(),
 });
 
 const updateServiceZodSchema = z.object({

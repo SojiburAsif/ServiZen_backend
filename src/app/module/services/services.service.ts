@@ -16,6 +16,7 @@ type TGetAllServicesQuery = {
 
 type TUpdateServicePayload = Partial<ICreateServicePayload> & {
     isActive?: boolean;
+    providerId?: string;
 };
 
 const serviceDetailsSelect = {
@@ -111,23 +112,66 @@ const validateProviderAndSpecialtyRelation = async (providerId: string, specialt
     }
 };
 
+const getDefaultSpecialtyIdForProviderOrThrow = async (providerId: string) => {
+    const providerSpecialty = await prisma.providerSpecialty.findFirst({
+        where: {
+            providerId,
+        },
+        orderBy: {
+            createdAt: "asc",
+        },
+        select: {
+            specialtyId: true,
+        },
+    });
+
+    if (!providerSpecialty) {
+        throw new AppError(status.BAD_REQUEST, "No specialty found for this provider. Please assign a specialty first.");
+    }
+
+    return providerSpecialty.specialtyId;
+};
+
+const ensureUniqueServiceTitleForProvider = async (
+    providerId: string,
+    name: string,
+    excludeServiceId?: string
+) => {
+    const existingService = await prisma.service.findFirst({
+        where: {
+            providerId,
+            isDeleted: false,
+            name: {
+                equals: name.trim(),
+                mode: "insensitive",
+            },
+            ...(excludeServiceId && {
+                NOT: {
+                    id: excludeServiceId,
+                },
+            }),
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (existingService) {
+        throw new AppError(status.CONFLICT, "You already have a service with this title");
+    }
+};
+
 const createServices = async (payload: ICreateServicePayload, user: IRequestUser) => {
-    let effectiveProviderId = payload.providerId;
-
-    if (user.role === Role.PROVIDER) {
-        const provider = await getProviderByUserIdOrThrow(user.userId);
-        effectiveProviderId = provider.id;
+    if (user.role !== Role.PROVIDER) {
+        throw new AppError(status.FORBIDDEN, "Only providers can create services");
     }
 
-    if (user.role === Role.ADMIN && !effectiveProviderId) {
-        throw new AppError(status.BAD_REQUEST, "providerId is required for admin create");
-    }
+    const provider = await getProviderByUserIdOrThrow(user.userId);
+    const effectiveProviderId = provider.id;
+    const effectiveSpecialtyId = payload.specialtyId ?? await getDefaultSpecialtyIdForProviderOrThrow(effectiveProviderId);
 
-    if (!effectiveProviderId) {
-        throw new AppError(status.BAD_REQUEST, "providerId is required");
-    }
-
-    await validateProviderAndSpecialtyRelation(effectiveProviderId, payload.specialtyId);
+    await validateProviderAndSpecialtyRelation(effectiveProviderId, effectiveSpecialtyId);
+    await ensureUniqueServiceTitleForProvider(effectiveProviderId, payload.name);
 
     const service = await prisma.service.create({
         data: {
@@ -135,7 +179,7 @@ const createServices = async (payload: ICreateServicePayload, user: IRequestUser
             description: payload.description,
             price: payload.price,
             duration: payload.duration,
-            specialtyId: payload.specialtyId,
+            specialtyId: effectiveSpecialtyId,
             providerId: effectiveProviderId,
         },
         select: serviceDetailsSelect,
@@ -228,6 +272,7 @@ const updateService = async (id: string, payload: TUpdateServicePayload, user: I
 
     const targetProviderId = payload.providerId ?? existingService.providerId;
     const targetSpecialtyId = payload.specialtyId ?? existingService.specialtyId;
+    const targetServiceName = payload.name ?? existingService.name;
 
     if (user.role === Role.PROVIDER && payload.providerId && payload.providerId !== existingService.providerId) {
         throw new AppError(status.FORBIDDEN, "You cannot transfer service to another provider");
@@ -236,6 +281,8 @@ const updateService = async (id: string, payload: TUpdateServicePayload, user: I
     if (targetProviderId !== existingService.providerId || targetSpecialtyId !== existingService.specialtyId) {
         await validateProviderAndSpecialtyRelation(targetProviderId, targetSpecialtyId);
     }
+
+    await ensureUniqueServiceTitleForProvider(targetProviderId, targetServiceName, existingService.id);
 
     return prisma.service.update({
         where: {

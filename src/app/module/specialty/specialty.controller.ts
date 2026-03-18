@@ -30,6 +30,18 @@ const getAllSpecialties = catchAsync(
     }
 )
 
+const getMySpecialties = catchAsync(
+    async (req: Request, res: Response) => {
+        const result = await SpecialtyService.getMySpecialties(req.user);
+        sendResponse(res, {
+            httpStatusCode: 200,
+            success: true,
+            message: 'Provider specialties fetched successfully',
+            data: result
+        });
+    }
+)
+
 const deleteSpecialty = catchAsync(
     async (req: Request, res: Response) => {
         const { id } = req.params;
@@ -43,8 +55,35 @@ const deleteSpecialty = catchAsync(
     }
 )
 
+const addMySpecialties = catchAsync(
+    async (req: Request, res: Response) => {
+        const result = await SpecialtyService.addMySpecialties(req.user, req.body.specialties);
+        sendResponse(res, {
+            httpStatusCode: 200,
+            success: true,
+            message: 'Provider specialties added successfully',
+            data: result
+        });
+    }
+)
+
+const removeMySpecialty = catchAsync(
+    async (req: Request, res: Response) => {
+        const result = await SpecialtyService.removeMySpecialty(req.user, req.params.specialtyId as string);
+        sendResponse(res, {
+            httpStatusCode: 200,
+            success: true,
+            message: 'Provider specialty removed successfully',
+            data: result
+        });
+    }
+)
+
 export const SpecialtyController = {
     createSpecialty,
     getAllSpecialties,
-    deleteSpecialty
+    getMySpecialties,
+    deleteSpecialty,
+    addMySpecialties,
+    removeMySpecialty,
 }

@@ -7,7 +7,7 @@ model Payment {
     createdAt          DateTime      @default(now())
     updatedAt          DateTime      @updatedAt
 
-    // বুকিংয়ের সাথে রিলেশন (পরিবর্তিত: ServiceId এর বদলে BookingId)
+ 
     bookingId String  @unique
     booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 

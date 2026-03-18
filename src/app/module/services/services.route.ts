@@ -9,7 +9,7 @@ const router = Router();
 
 router.post(
 	'/create-service',
-	checkAuth(Role.ADMIN, Role.PROVIDER),
+	checkAuth( Role.PROVIDER),
 	validateRequest(ServicesValidation.createServiceValidationSchema),
 	ServicesController.createservice
 );
@@ -21,20 +21,20 @@ router.get(
 );
 
 router.get(
-	'/services/:id',
+	'/:id',
 	validateRequest(ServicesValidation.getServiceByIdValidationSchema),
 	ServicesController.getServiceById
 );
 
 router.patch(
-	'/services/:id',
+	'/:id',
 	checkAuth(Role.ADMIN, Role.PROVIDER),
 	validateRequest(ServicesValidation.updateServiceValidationSchema),
 	ServicesController.updateService
 );
 
 router.delete(
-	'/services/:id',
+	'/:id',
 	checkAuth(Role.ADMIN, Role.PROVIDER),
 	validateRequest(ServicesValidation.deleteServiceValidationSchema),
 	ServicesController.deleteService

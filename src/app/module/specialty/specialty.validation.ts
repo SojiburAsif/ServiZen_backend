@@ -1,5 +1,7 @@
 import z from "zod";
 
+const specialtyIdSchema = z.string().uuid("Specialty id must be a valid UUID");
+
 const createSpecialtyValidationSchema = z.object({
 	title: z
 		.string()
@@ -18,6 +20,20 @@ const createSpecialtyValidationSchema = z.object({
 		.optional(),
 });
 
+const addMySpecialtiesValidationSchema = z.object({
+	body: z.object({
+		specialties: z.array(specialtyIdSchema).min(1, "At least one specialty id is required"),
+	}),
+});
+
+const removeMySpecialtyValidationSchema = z.object({
+	params: z.object({
+		specialtyId: specialtyIdSchema,
+	}),
+});
+
 export const SpecialtyValidation = {
 	createSpecialtyValidationSchema,
+	addMySpecialtiesValidationSchema,
+	removeMySpecialtyValidationSchema,
 };

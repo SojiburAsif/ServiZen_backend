@@ -193,6 +193,24 @@ const getMyProfile = async (user: IRequestUser) => {
     return provider;
 };
 
+const getMyProviderIdOrThrow = async (user: IRequestUser) => {
+    const provider = await prisma.provider.findFirst({
+        where: {
+            userId: user.userId,
+            isDeleted: false,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!provider) {
+        throw new AppError(status.NOT_FOUND, "Provider profile not found");
+    }
+
+    return provider.id;
+};
+
 const updateProvider = async (id: string, payload: any) => {
     await getExistingProviderOrThrow(id);
     
@@ -268,7 +286,7 @@ const deleteProvider = async (id: string) => {
             }
         });
 
-        // সেশন ডিলিট করা (ডক্টর সার্ভিসের মতো)
+ 
         await tx.session?.deleteMany({
             where: { userId: existingProvider.userId }
         });
@@ -282,26 +300,53 @@ const deleteProvider = async (id: string) => {
 };
 
 const updateMyProfile = async (user: IRequestUser, payload: Record<string, unknown>) => {
-    const provider = await prisma.provider.findFirst({
-        where: {
-            userId: user.userId,
-            isDeleted: false,
-        },
-        select: {
-            id: true,
-        },
+    const providerId = await getMyProviderIdOrThrow(user);
+
+    const { specialties, ...providerData } = payload;
+
+    await prisma.$transaction(async (tx) => {
+        // Update provider data
+        if (Object.keys(providerData).length > 0) {
+            await tx.provider.update({
+                where: { id: providerId },
+                data: providerData,
+            });
+        }
+
+        // Manage specialties
+        if (specialties && Array.isArray(specialties) && specialties.length > 0) {
+            for (const item of specialties as any[]) {
+                const { specialtyId, shouldDelete } = item;
+
+                if (shouldDelete) {
+                    await tx.providerSpecialty.deleteMany({
+                        where: {
+                            providerId,
+                            specialtyId,
+                        },
+                    });
+                } else {
+                    const existingProviderSpecialty = await tx.providerSpecialty.findFirst({
+                        where: {
+                            providerId,
+                            specialtyId,
+                        },
+                    });
+
+                    if (!existingProviderSpecialty) {
+                        await tx.providerSpecialty.create({
+                            data: {
+                                providerId,
+                                specialtyId,
+                            },
+                        });
+                    }
+                }
+            }
+        }
     });
 
-    if (!provider) {
-        throw new AppError(status.NOT_FOUND, "Provider profile not found");
-    }
-
-    await prisma.provider.update({
-        where: { id: provider.id },
-        data: payload,
-    });
-
-    return getProviderById(provider.id);
+    return getProviderById(providerId);
 };
 
 export const ProviderService = {
