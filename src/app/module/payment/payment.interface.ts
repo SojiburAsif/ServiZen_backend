@@ -11,3 +11,12 @@ export interface IBookBookingPayload {
 export interface IInitiatePaymentPayload {
 	bookingId: string;
 }
+
+export interface IGetAllPaymentsQuery {
+	page?: string;
+	limit?: string;
+	status?: "UNPAID" | "PAID";
+	clientId?: string;
+	providerId?: string;
+	serviceId?: string;
+}

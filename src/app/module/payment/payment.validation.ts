@@ -1,4 +1,5 @@
 import z from "zod";
+import { PaymentStatus } from "../../../generated/prisma/enums";
 
 const bookingIdParamSchema = z.object({
 	bookingId: z.string().uuid("Booking id must be a valid UUID"),
@@ -18,9 +19,20 @@ const cleanupQuerySchema = z.object({
 	minutes: z.coerce.number().int().min(1, "Minutes must be at least 1").max(1440, "Minutes cannot exceed 1440").optional(),
 });
 
+const paymentListQuerySchema = z.object({
+	page: z.coerce.number().int().min(1, "Page must be at least 1").optional().default(1),
+	limit: z.coerce.number().int().min(1, "Limit must be at least 1").max(100, "Limit cannot exceed 100").optional().default(10),
+	status: z.nativeEnum(PaymentStatus).optional(),
+	clientId: z.string().uuid("Client id must be a valid UUID").optional(),
+	providerId: z.string().uuid("Provider id must be a valid UUID").optional(),
+	serviceId: z.string().uuid("Service id must be a valid UUID").optional(),
+});
+
 export const PaymentValidation = {
 	bookServiceValidationSchema: z.object({ body: createPaymentBookingBodySchema }),
 	bookWithPayLaterValidationSchema: z.object({ body: createPaymentBookingBodySchema }),
 	initiatePaymentValidationSchema: z.object({ params: bookingIdParamSchema }),
 	cancelUnpaidBookingsValidationSchema: z.object({ query: cleanupQuerySchema }),
+	getAllPaymentsValidationSchema: z.object({ query: paymentListQuerySchema }),
+	getMyPaymentsValidationSchema: z.object({ query: paymentListQuerySchema.omit({ clientId: true, status: true }) }),
 };

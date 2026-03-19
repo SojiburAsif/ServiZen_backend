@@ -1,7 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import { ICreateServicePayload } from "./services.interface";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
-import { Prisma, Role } from "../../../generated/prisma/client";
+import { PaymentStatus, Prisma, Role } from "../../../generated/prisma/client";
 import status from "http-status";
 import AppError from "../../errorHelpers/AppError";
 
@@ -132,6 +132,38 @@ const getDefaultSpecialtyIdForProviderOrThrow = async (providerId: string) => {
     return providerSpecialty.specialtyId;
 };
 
+const getServicePaymentStatsMap = async (serviceIds: string[]) => {
+    if (serviceIds.length === 0) {
+        return new Map<string, { totalPaidAmount: number; totalPaidBookings: number }>();
+    }
+
+    const grouped = await prisma.booking.groupBy({
+        by: ["serviceId"],
+        where: {
+            serviceId: {
+                in: serviceIds,
+            },
+            paymentStatus: PaymentStatus.PAID,
+        },
+        _sum: {
+            totalAmount: true,
+        },
+        _count: {
+            _all: true,
+        },
+    });
+
+    return new Map(
+        grouped.map((item) => [
+            item.serviceId,
+            {
+                totalPaidAmount: item._sum.totalAmount ?? 0,
+                totalPaidBookings: item._count._all,
+            },
+        ]),
+    );
+};
+
 const ensureUniqueServiceTitleForProvider = async (
     providerId: string,
     name: string,
@@ -221,13 +253,19 @@ const getAllServices = async (query: TGetAllServicesQuery = {}) => {
         prisma.service.count({ where }),
     ]);
 
+    const statsMap = await getServicePaymentStatsMap(services.map((service) => service.id));
+
     return {
         meta: {
             page,
             limit,
             total,
         },
-        data: services,
+        data: services.map((service) => ({
+            ...service,
+            totalPaidAmount: statsMap.get(service.id)?.totalPaidAmount ?? 0,
+            totalPaidBookings: statsMap.get(service.id)?.totalPaidBookings ?? 0,
+        })),
     };
 }
 
@@ -244,7 +282,13 @@ const getServiceById = async (id: string) => {
         throw new AppError(status.NOT_FOUND, "Service not found");
     }
 
-    return service;
+    const statsMap = await getServicePaymentStatsMap([id]);
+
+    return {
+        ...service,
+        totalPaidAmount: statsMap.get(id)?.totalPaidAmount ?? 0,
+        totalPaidBookings: statsMap.get(id)?.totalPaidBookings ?? 0,
+    };
 }
 
 const updateService = async (id: string, payload: TUpdateServicePayload, user: IRequestUser) => {

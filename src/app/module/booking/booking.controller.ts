@@ -5,17 +5,6 @@ import { sendResponse } from "../../shared/sendResponse";
 import { BookingService } from "./booking.service";
 import { PaymentService } from "../payment/payment.service";
 
-const createBooking = catchAsync(async (req: Request, res: Response) => {
-	const result = await BookingService.createBooking(req.body, req.user);
-
-	sendResponse(res, {
-		httpStatusCode: status.CREATED,
-		success: true,
-		message: "Booking created successfully",
-		data: result,
-	});
-});
-
 const createBookingPayNow = catchAsync(async (req: Request, res: Response) => {
 	const result = await PaymentService.bookService(req.body, req.user);
 
@@ -131,7 +120,6 @@ const deleteBooking = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const BookingController = {
-	createBooking,
 	createBookingPayNow,
 	createBookingPayLater,
 	initiateBookingPayment,

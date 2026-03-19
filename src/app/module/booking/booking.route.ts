@@ -9,13 +9,6 @@ import { PaymentValidation } from "../payment/payment.validation";
 const route = Router();
 
 route.post(
-	"/create",
-	checkAuth(Role.USER),
-	validateRequest(BookingValidation.createBookingValidationSchema),
-	BookingController.createBooking,
-);
-
-route.post(
 	"/book-now",
 	checkAuth(Role.USER),
 	validateRequest(PaymentValidation.bookServiceValidationSchema),

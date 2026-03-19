@@ -8,7 +8,7 @@ import { stripe } from "../../../config/stripe.config";
 import AppError from "../../errorHelpers/AppError";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { prisma } from "../../lib/prisma";
-import { IBookBookingPayload } from "./payment.interface";
+import { IBookBookingPayload, IGetAllPaymentsQuery } from "./payment.interface";
 
 const DEFAULT_PAYMENT_DUE_MINUTES = 30;
 
@@ -99,6 +99,204 @@ const getActiveServiceOrThrow = async (serviceId: string) => {
     }
 
     return service;
+};
+
+const paymentListInclude = {
+    booking: {
+        select: {
+            id: true,
+            bookingDate: true,
+            bookingTime: true,
+            paymentStatus: true,
+            status: true,
+            totalAmount: true,
+            client: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                },
+            },
+            provider: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    profilePhoto: true,
+                },
+            },
+            service: {
+                select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                },
+            },
+        },
+    },
+} satisfies Prisma.PaymentInclude;
+
+const myPaymentSelect = {
+    transactionId: true,
+    amount: true,
+    status: true,
+    stripeEventId: true,
+    booking: {
+        select: {
+            status: true,
+            paymentStatus: true,
+            client: {
+                select: {
+                    name: true,
+                    email: true,
+                },
+            },
+            provider: {
+                select: {
+                    name: true,
+                },
+            },
+            service: {
+                select: {
+                    name: true,
+                },
+            },
+        },
+    },
+} satisfies Prisma.PaymentSelect;
+
+const addProviderEarningsFromBooking = async (tx: Prisma.TransactionClient, bookingId: string, amount: number) => {
+    const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: {
+            providerId: true,
+        },
+    });
+
+    if (!booking) {
+        return;
+    }
+
+    await tx.provider.update({
+        where: { id: booking.providerId },
+        data: {
+            walletBalance: {
+                increment: amount,
+            },
+            totalEarned: {
+                increment: amount,
+            },
+        },
+    });
+};
+
+const markPaymentAsPaidIfNeeded = async (
+    tx: Prisma.TransactionClient,
+    paymentId: string,
+    data: Omit<Prisma.PaymentUpdateManyMutationInput, "status">,
+) => {
+    const result = await tx.payment.updateMany({
+        where: {
+            id: paymentId,
+            status: {
+                not: PaymentStatus.PAID,
+            },
+        },
+        data: {
+            status: PaymentStatus.PAID,
+            ...data,
+        },
+    });
+
+    return result.count > 0;
+};
+
+const buildPaymentWhere = (query: IGetAllPaymentsQuery, clientId?: string): Prisma.PaymentWhereInput => {
+    return {
+        ...(query.status && { status: query.status as PaymentStatus }),
+        booking: {
+            is: {
+                ...(clientId && { clientId }),
+                ...(query.clientId && { clientId: query.clientId }),
+                ...(query.providerId && { providerId: query.providerId }),
+                ...(query.serviceId && { serviceId: query.serviceId }),
+                client: {
+                    isDeleted: false,
+                },
+                provider: {
+                    isDeleted: false,
+                },
+                service: {
+                    isDeleted: false,
+                },
+            },
+        },
+    };
+};
+
+const getAllPayments = async (query: IGetAllPaymentsQuery = {}) => {
+    const page = Number(query.page ?? 1);
+    const limit = Number(query.limit ?? 10);
+    const skip = (page - 1) * limit;
+
+    const where = buildPaymentWhere(query);
+
+    const [data, total] = await Promise.all([
+        prisma.payment.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: {
+                createdAt: "desc",
+            },
+            include: paymentListInclude,
+        }),
+        prisma.payment.count({ where }),
+    ]);
+
+    return {
+        meta: {
+            page,
+            limit,
+            total,
+        },
+        data,
+    };
+};
+
+const getMyPayments = async (user: IRequestUser, query: IGetAllPaymentsQuery = {}) => {
+    if (user.role !== Role.USER) {
+        throw new AppError(status.FORBIDDEN, "Only client can access own payments");
+    }
+
+    const client = await getClientByUserIdOrThrow(user.userId);
+
+    const page = Number(query.page ?? 1);
+    const limit = Number(query.limit ?? 10);
+    const skip = (page - 1) * limit;
+    const where = buildPaymentWhere({ ...query, status: PaymentStatus.PAID }, client.id);
+
+    const [data, total] = await Promise.all([
+        prisma.payment.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: {
+                createdAt: "desc",
+            },
+            select: myPaymentSelect,
+        }),
+        prisma.payment.count({ where }),
+    ]);
+
+    return {
+        meta: {
+            page,
+            limit,
+            total,
+        },
+        data,
+    };
 };
 
 const createStripeCheckoutSession = async (params: {
@@ -472,14 +670,14 @@ const verifyCheckoutPayment = async (bookingId: string, sessionId: string, user:
             ? await tx.payment.findUnique({ where: { id: paymentId } })
             : booking.payment;
 
-        if (payment && payment.status !== PaymentStatus.PAID) {
-            await tx.payment.update({
-                where: { id: payment.id },
-                data: {
-                    status: PaymentStatus.PAID,
-                    paymentGatewayData: session as unknown as Prisma.InputJsonValue,
-                },
+        if (payment) {
+            const markedAsPaid = await markPaymentAsPaidIfNeeded(tx, payment.id, {
+                paymentGatewayData: session as unknown as Prisma.InputJsonValue,
             });
+
+            if (markedAsPaid) {
+                await addProviderEarningsFromBooking(tx, booking.id, payment.amount);
+            }
         }
 
         if (!payment) {
@@ -492,6 +690,8 @@ const verifyCheckoutPayment = async (bookingId: string, sessionId: string, user:
                     paymentGatewayData: session as unknown as Prisma.InputJsonValue,
                 },
             });
+
+            await addProviderEarningsFromBooking(tx, booking.id, booking.totalAmount);
         }
 
         await tx.booking.update({
@@ -537,6 +737,7 @@ const markBookingAsPaidFromSession = async (session: Stripe.Checkout.Session, st
             where: { id: paymentId },
             select: {
                 id: true,
+                amount: true,
                 status: true,
                 stripeEventId: true,
             },
@@ -555,14 +756,16 @@ const markBookingAsPaidFromSession = async (session: Stripe.Checkout.Session, st
             return;
         }
 
-        await tx.payment.update({
-            where: { id: paymentId },
-            data: {
-                status: PaymentStatus.PAID,
-                stripeEventId,
-                paymentGatewayData: session as unknown as Prisma.InputJsonValue,
-            },
+        const markedAsPaid = await markPaymentAsPaidIfNeeded(tx, paymentId, {
+            stripeEventId,
+            paymentGatewayData: session as unknown as Prisma.InputJsonValue,
         });
+
+        if (!markedAsPaid) {
+            return;
+        }
+
+        await addProviderEarningsFromBooking(tx, bookingId, payment.amount);
 
         await tx.booking.update({
             where: { id: bookingId },
@@ -610,6 +813,7 @@ const markBookingAsPaidByMetadata = async (
             where: { id: paymentId },
             select: {
                 id: true,
+                amount: true,
                 status: true,
                 stripeEventId: true,
             },
@@ -623,14 +827,16 @@ const markBookingAsPaidByMetadata = async (
             return;
         }
 
-        await tx.payment.update({
-            where: { id: paymentId },
-            data: {
-                status: PaymentStatus.PAID,
-                stripeEventId,
-                paymentGatewayData: gatewayData,
-            },
+        const markedAsPaid = await markPaymentAsPaidIfNeeded(tx, paymentId, {
+            stripeEventId,
+            paymentGatewayData: gatewayData,
         });
+
+        if (!markedAsPaid) {
+            return;
+        }
+
+        await addProviderEarningsFromBooking(tx, bookingId, payment.amount);
 
         await tx.booking.update({
             where: { id: bookingId },
@@ -690,14 +896,16 @@ const syncBookingPaymentStatus = async (bookingId: string) => {
                     paymentGatewayData: session as unknown as Prisma.InputJsonValue,
                 },
             });
-        } else if (payment.status !== PaymentStatus.PAID) {
-            await tx.payment.update({
-                where: { id: payment.id },
-                data: {
-                    status: PaymentStatus.PAID,
-                    paymentGatewayData: session as unknown as Prisma.InputJsonValue,
-                },
+
+            await addProviderEarningsFromBooking(tx, booking.id, booking.totalAmount);
+        } else {
+            const markedAsPaid = await markPaymentAsPaidIfNeeded(tx, payment.id, {
+                paymentGatewayData: session as unknown as Prisma.InputJsonValue,
             });
+
+            if (markedAsPaid) {
+                await addProviderEarningsFromBooking(tx, booking.id, payment.amount);
+            }
         }
 
         await tx.booking.update({
@@ -736,6 +944,8 @@ export const PaymentService = {
     bookService,
     bookWithPayLater,
     initiatePayment,
+    getAllPayments,
+    getMyPayments,
     cancelUnpaidBookings,
     verifyCheckoutPayment,
     syncBookingPaymentStatus,
