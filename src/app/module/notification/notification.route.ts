@@ -14,9 +14,16 @@ route.get(
     NotificationController.getMyNotifications,
 );
 
+route.get(
+    "/provider/my",
+    checkAuth(Role.PROVIDER),
+    validateRequest(NotificationValidation.getMyNotificationsValidationSchema),
+    NotificationController.getProviderNotifications,
+);
+
 route.patch(
     "/:id/read",
-    checkAuth(Role.USER, Role.ADMIN),
+    checkAuth(Role.USER, Role.ADMIN, Role.PROVIDER),
     validateRequest(NotificationValidation.markAsReadValidationSchema),
     NotificationController.markNotificationAsRead,
 );

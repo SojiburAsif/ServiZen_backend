@@ -26,7 +26,19 @@ const markNotificationAsRead = catchAsync(async (req: Request, res: Response) =>
     });
 });
 
+const getProviderNotifications = catchAsync(async (req: Request, res: Response) => {
+    const result = await NotificationService.getProviderNotifications(req.user, req.query);
+
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: true,
+        message: "Provider notifications fetched successfully",
+        data: result,
+    });
+});
+
 export const NotificationController = {
     getMyNotifications,
+    getProviderNotifications,
     markNotificationAsRead,
 };
