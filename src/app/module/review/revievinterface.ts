@@ -1,5 +1,5 @@
 export interface CreateReviewPayload {
-    serviceId: string;
+    bookingId: string;
     rating: number;
     comment?: string;
 }

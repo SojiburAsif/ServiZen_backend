@@ -9,14 +9,14 @@ const route = Router();
 
 route.get(
     "/my",
-    checkAuth(Role.USER),
+    checkAuth(Role.USER, Role.ADMIN),
     validateRequest(NotificationValidation.getMyNotificationsValidationSchema),
     NotificationController.getMyNotifications,
 );
 
 route.patch(
     "/:id/read",
-    checkAuth(Role.USER),
+    checkAuth(Role.USER, Role.ADMIN),
     validateRequest(NotificationValidation.markAsReadValidationSchema),
     NotificationController.markNotificationAsRead,
 );

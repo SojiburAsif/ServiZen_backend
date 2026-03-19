@@ -26,5 +26,19 @@ router.get(
 	ReviewController.getProviderReviews,
 );
 
+router.get(
+	"/my",
+	checkAuth(Role.PROVIDER),
+	validateRequest(ReviewValidation.getAllReviewsValidationSchema),
+	ReviewController.getMyReviews,
+);
+
+router.delete(
+	"/:id",
+	checkAuth(Role.ADMIN),
+	validateRequest(ReviewValidation.deleteReviewValidationSchema),
+	ReviewController.deleteReview,
+);
+
 
 export const ReviewRoutes = router;

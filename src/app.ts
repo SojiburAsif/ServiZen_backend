@@ -28,6 +28,12 @@ const setupAutoCancelJob = () => {
     setInterval(async () => {
         try {
             const paymentService = (await import('./app/module/payment/payment.service')).PaymentService;
+            const notificationService = (await import('./app/module/notification/notification.service')).NotificationService;
+
+            const cleanupResult = await notificationService.deleteExpiredCompletedNotifications(30);
+            if (cleanupResult.deletedCount > 0) {
+                console.log(`Deleted ${cleanupResult.deletedCount} expired completed notifications`);
+            }
 
             const reminderResult = await paymentService.sendPayLaterReminderNotifications(dueMinutes, 5);
             if (reminderResult.remindedCount > 0) {

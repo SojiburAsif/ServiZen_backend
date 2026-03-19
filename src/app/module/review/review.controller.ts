@@ -48,9 +48,36 @@ const getProviderReviews = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const getMyReviews = catchAsync(async (req: Request, res: Response) => {
+    const query = req.query as { page?: string; limit?: string };
+    const result = await ReviewService.getMyReviews(req.user, {
+        page: query.page ? Number(query.page) : undefined,
+        limit: query.limit ? Number(query.limit) : undefined,
+    });
+
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: true,
+        message: "My reviews retrieved successfully",
+        data: result,
+    });
+});
+
+const deleteReview = catchAsync(async (req: Request, res: Response) => {
+    const result = await ReviewService.deleteReview(req.params.id as string, req.user);
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: true,
+        message: "Review deleted successfully",
+        data: result,
+    });
+});
+
 
 export const ReviewController = {
     createReview,
     getAllReviews,
-    getProviderReviews
+    getProviderReviews,
+    getMyReviews,
+    deleteReview,
 }
