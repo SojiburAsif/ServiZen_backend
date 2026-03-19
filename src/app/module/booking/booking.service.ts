@@ -4,6 +4,7 @@ import { BookingStatus, PaymentStatus, Role } from "../../../generated/prisma/en
 import AppError from "../../errorHelpers/AppError";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { prisma } from "../../lib/prisma";
+import { PaymentService } from "../payment/payment.service";
 import {
     ICreateBookingPayload,
     IGetAllBookingsQuery,
@@ -172,11 +173,8 @@ const createBooking = async (payload: ICreateBookingPayload, user: IRequestUser)
             totalAmount: service.price,
         },
         include: bookingDetailsInclude,
-
-        // TODO: Payment integration will be added later. Once payment integration is done, we can set paymentStatus to PAID after successful payment and only then the booking will be considered confirmed. Until then, we can keep it as PENDING and allow providers to accept the booking which will change the status to ACCEPTED. After service is delivered, provider or client can mark it as COMPLETED. Client can also cancel the booking before it's accepted by provider. After provider accepts the booking, client cannot cancel it but provider can cancel it until it's marked as COMPLETED 
     });
 };
-
 const getAllBookings = async (query: IGetAllBookingsQuery = {}) => {
     const page = Number(query.page ?? 1);
     const limit = Number(query.limit ?? 10);
@@ -190,7 +188,7 @@ const getAllBookings = async (query: IGetAllBookingsQuery = {}) => {
         ...(query.serviceId && { serviceId: query.serviceId }),
     };
 
-    const [data, total] = await Promise.all([
+    let [data, total] = await Promise.all([
         prisma.booking.findMany({
             where,
             skip,
@@ -202,6 +200,35 @@ const getAllBookings = async (query: IGetAllBookingsQuery = {}) => {
         }),
         prisma.booking.count({ where }),
     ]);
+
+    const unpaidPendingBookingIds = data
+        .filter((booking) => booking.status === BookingStatus.PENDING && booking.paymentStatus === PaymentStatus.UNPAID)
+        .map((booking) => booking.id);
+
+    if (unpaidPendingBookingIds.length > 0) {
+        const syncResults = await Promise.allSettled(
+            unpaidPendingBookingIds.map((bookingId) => PaymentService.syncBookingPaymentStatus(bookingId)),
+        );
+
+        const hasSyncedAny = syncResults.some(
+            (result) => result.status === "fulfilled" && result.value.synced,
+        );
+
+        if (hasSyncedAny) {
+            [data, total] = await Promise.all([
+                prisma.booking.findMany({
+                    where,
+                    skip,
+                    take: limit,
+                    orderBy: {
+                        createdAt: "desc",
+                    },
+                    include: bookingDetailsInclude,
+                }),
+                prisma.booking.count({ where }),
+            ]);
+        }
+    }
 
     return {
         meta: {
@@ -232,7 +259,12 @@ const getProviderBookings = async (user: IRequestUser, query: IGetAllBookingsQue
 const getBookingById = async (id: string, user: IRequestUser) => {
     const booking = await getExistingBookingByIdOrThrow(id);
     await assertBookingAccessOrThrow(booking, user);
-    return booking;
+
+    if (booking.paymentStatus === PaymentStatus.UNPAID && booking.status === BookingStatus.PENDING) {
+        await PaymentService.syncBookingPaymentStatus(id);
+    }
+
+    return getExistingBookingByIdOrThrow(id);
 };
 
 const updateBooking = async (id: string, payload: IUpdateBookingPayload, user: IRequestUser) => {

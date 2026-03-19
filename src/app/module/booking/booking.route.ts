@@ -4,6 +4,7 @@ import { checkAuth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { BookingController } from "./booking.controller";
 import { BookingValidation } from "./booking.validation";
+import { PaymentValidation } from "../payment/payment.validation";
 
 const route = Router();
 
@@ -12,6 +13,34 @@ route.post(
 	checkAuth(Role.USER),
 	validateRequest(BookingValidation.createBookingValidationSchema),
 	BookingController.createBooking,
+);
+
+route.post(
+	"/book-now",
+	checkAuth(Role.USER),
+	validateRequest(PaymentValidation.bookServiceValidationSchema),
+	BookingController.createBookingPayNow,
+);
+
+route.post(
+	"/book-later",
+	checkAuth(Role.USER),
+	validateRequest(PaymentValidation.bookWithPayLaterValidationSchema),
+	BookingController.createBookingPayLater,
+);
+
+route.post(
+	"/:id/initiate-payment",
+	checkAuth(Role.USER),
+	validateRequest(BookingValidation.getBookingByIdValidationSchema),
+	BookingController.initiateBookingPayment,
+);
+
+route.post(
+	"/:id/confirm-payment",
+	checkAuth(Role.USER),
+	validateRequest(BookingValidation.confirmBookingPaymentValidationSchema),
+	BookingController.confirmBookingPayment,
 );
 
 route.get(

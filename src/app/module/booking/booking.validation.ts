@@ -5,6 +5,10 @@ const bookingIdParamSchema = z.object({
     id: z.string().uuid("Booking id must be a valid UUID"),
 });
 
+const confirmPaymentQuerySchema = z.object({
+    sessionId: z.string().trim().min(1, "Session id is required"),
+});
+
 const createBookingBodySchema = z.object({
     bookingDate: z.string().datetime("Booking date must be a valid ISO datetime"),
     bookingTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Booking time must be in HH:mm format"),
@@ -43,6 +47,10 @@ export const BookingValidation = {
     createBookingValidationSchema: z.object({ body: createBookingBodySchema }),
     getAllBookingsValidationSchema: z.object({ query: getAllBookingsQuerySchema }),
     getBookingByIdValidationSchema: z.object({ params: bookingIdParamSchema }),
+    confirmBookingPaymentValidationSchema: z.object({
+        params: bookingIdParamSchema,
+        query: confirmPaymentQuerySchema,
+    }),
     updateBookingValidationSchema: z.object({ params: bookingIdParamSchema, body: updateBookingBodySchema }),
     deleteBookingValidationSchema: z.object({ params: bookingIdParamSchema }),
 };

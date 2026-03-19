@@ -9,10 +9,11 @@
     "dev": "tsx watch src/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint ./src/**/*",
+    "seed:admin": "tsx src/app/utils/seed.ts",
     "migrate": "prisma migrate dev",
     "generate": "prisma generate",
     "studio": "prisma studio",
-    "stripe:Webhook": "stripe listen --forward-to localhost:4242/webhook"
+    "stripe:Webhook": "stripe listen --forward-to localhost:5000/webhook"
   },
   "keywords": [],
   "author": "",

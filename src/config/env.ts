@@ -32,7 +32,10 @@ interface EnvConfig {
         STRIPE_SECRET_KEY: string;
         STRIPE_WEBHOOK_SECRET: string;
     }
-
+    BOOKING_PAYMENT_DUE_MINUTES: string;
+    BOOKING_PAYMENT_AUTO_CANCEL_INTERVAL_MINUTES: string;
+    ADMIN_EMAIL: string;
+    ADMIN_PASSWORD: string;
 
 }
 
@@ -60,7 +63,11 @@ const loadEnvVariables = (): EnvConfig => {
         'GOOGLE_CALLBACK_URL',
         'FRONTEND_URL',
         'STRIPE_SECRET_KEY',
-        'STRIPE_WEBHOOK_SECRET'
+        'STRIPE_WEBHOOK_SECRET',
+        'BOOKING_PAYMENT_DUE_MINUTES',
+        'BOOKING_PAYMENT_AUTO_CANCEL_INTERVAL_MINUTES',
+        'ADMIN_EMAIL',
+        'ADMIN_PASSWORD'
 
 
     ]
@@ -98,7 +105,11 @@ const loadEnvVariables = (): EnvConfig => {
         STRIPE: {
             STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY as string,
             STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET as string
-        }
+        },
+        BOOKING_PAYMENT_DUE_MINUTES: process.env.BOOKING_PAYMENT_DUE_MINUTES as string,
+        BOOKING_PAYMENT_AUTO_CANCEL_INTERVAL_MINUTES: process.env.BOOKING_PAYMENT_AUTO_CANCEL_INTERVAL_MINUTES as string,
+        ADMIN_EMAIL: process.env.ADMIN_EMAIL as string,
+        ADMIN_PASSWORD: process.env.ADMIN_PASSWORD as string
 
     }
 }
