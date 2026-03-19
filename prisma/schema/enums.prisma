@@ -23,3 +23,8 @@ enum PaymentStatus {
   PAID
   REFUNDED
 }
+
+enum NotificationType {
+  PAYMENT_COMPLETED
+  PAYMENT_REMINDER
+}

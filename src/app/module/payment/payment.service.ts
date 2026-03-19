@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Stripe from "stripe";
 import status from "http-status";
 import { BookingStatus, PaymentStatus, Prisma } from "../../../generated/prisma/client";
+import { NotificationType } from "../../../generated/prisma/enums";
 import { Role } from "../../../generated/prisma/enums";
 import { envVars } from "../../../config/env";
 import { stripe } from "../../../config/stripe.config";
@@ -209,6 +210,145 @@ const markPaymentAsPaidIfNeeded = async (
     });
 
     return result.count > 0;
+};
+
+const createNotificationIfMissing = async (
+    tx: Prisma.TransactionClient,
+    userId: string,
+    bookingId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+) => {
+    const existingNotification = await tx.notification.findFirst({
+        where: {
+            userId,
+            bookingId,
+            type,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (existingNotification) {
+        return;
+    }
+
+    await tx.notification.create({
+        data: {
+            userId,
+            bookingId,
+            type,
+            title,
+            message,
+        },
+    });
+};
+
+const createPaymentCompletedNotification = async (
+    tx: Prisma.TransactionClient,
+    bookingId: string,
+    amount: number,
+) => {
+    const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: {
+            id: true,
+            client: {
+                select: {
+                    userId: true,
+                },
+            },
+            service: {
+                select: {
+                    name: true,
+                },
+            },
+        },
+    });
+
+    if (!booking) {
+        return;
+    }
+
+    await createNotificationIfMissing(
+        tx,
+        booking.client.userId,
+        booking.id,
+        NotificationType.PAYMENT_COMPLETED,
+        "Payment completed",
+        `Your payment of BDT ${amount.toFixed(2)} for ${booking.service.name} was completed successfully.`,
+    );
+};
+
+const sendPayLaterReminderNotifications = async (dueMinutes = 30, reminderBeforeMinutes = 5) => {
+    const reminderStartCutoff = new Date(Date.now() - (dueMinutes - reminderBeforeMinutes) * 60 * 1000);
+    const reminderEndCutoff = new Date(Date.now() - dueMinutes * 60 * 1000);
+
+    const bookings = await prisma.booking.findMany({
+        where: {
+            status: BookingStatus.PENDING,
+            paymentStatus: PaymentStatus.UNPAID,
+            createdAt: {
+                lte: reminderStartCutoff,
+                gt: reminderEndCutoff,
+            },
+        },
+        select: {
+            id: true,
+            totalAmount: true,
+            client: {
+                select: {
+                    userId: true,
+                },
+            },
+            service: {
+                select: {
+                    name: true,
+                },
+            },
+        },
+    });
+
+    if (bookings.length === 0) {
+        return { remindedCount: 0 };
+    }
+
+    let remindedCount = 0;
+
+    await prisma.$transaction(async (tx) => {
+        for (const booking of bookings) {
+            const existingNotification = await tx.notification.findFirst({
+                where: {
+                    userId: booking.client.userId,
+                    bookingId: booking.id,
+                    type: NotificationType.PAYMENT_REMINDER,
+                },
+                select: {
+                    id: true,
+                },
+            });
+
+            if (existingNotification) {
+                continue;
+            }
+
+            await tx.notification.create({
+                data: {
+                    userId: booking.client.userId,
+                    bookingId: booking.id,
+                    type: NotificationType.PAYMENT_REMINDER,
+                    title: "Payment reminder",
+                    message: `Please complete payment of BDT ${booking.totalAmount.toFixed(2)} for ${booking.service.name}. Booking will auto-cancel in ${reminderBeforeMinutes} minutes.`,
+                },
+            });
+
+            remindedCount += 1;
+        }
+    });
+
+    return { remindedCount };
 };
 
 const buildPaymentWhere = (query: IGetAllPaymentsQuery, clientId?: string): Prisma.PaymentWhereInput => {
@@ -677,6 +817,7 @@ const verifyCheckoutPayment = async (bookingId: string, sessionId: string, user:
 
             if (markedAsPaid) {
                 await addProviderEarningsFromBooking(tx, booking.id, payment.amount);
+                await createPaymentCompletedNotification(tx, booking.id, payment.amount);
             }
         }
 
@@ -692,6 +833,7 @@ const verifyCheckoutPayment = async (bookingId: string, sessionId: string, user:
             });
 
             await addProviderEarningsFromBooking(tx, booking.id, booking.totalAmount);
+            await createPaymentCompletedNotification(tx, booking.id, booking.totalAmount);
         }
 
         await tx.booking.update({
@@ -766,6 +908,7 @@ const markBookingAsPaidFromSession = async (session: Stripe.Checkout.Session, st
         }
 
         await addProviderEarningsFromBooking(tx, bookingId, payment.amount);
+        await createPaymentCompletedNotification(tx, bookingId, payment.amount);
 
         await tx.booking.update({
             where: { id: bookingId },
@@ -837,6 +980,7 @@ const markBookingAsPaidByMetadata = async (
         }
 
         await addProviderEarningsFromBooking(tx, bookingId, payment.amount);
+        await createPaymentCompletedNotification(tx, bookingId, payment.amount);
 
         await tx.booking.update({
             where: { id: bookingId },
@@ -898,6 +1042,7 @@ const syncBookingPaymentStatus = async (bookingId: string) => {
             });
 
             await addProviderEarningsFromBooking(tx, booking.id, booking.totalAmount);
+            await createPaymentCompletedNotification(tx, booking.id, booking.totalAmount);
         } else {
             const markedAsPaid = await markPaymentAsPaidIfNeeded(tx, payment.id, {
                 paymentGatewayData: session as unknown as Prisma.InputJsonValue,
@@ -905,6 +1050,7 @@ const syncBookingPaymentStatus = async (bookingId: string) => {
 
             if (markedAsPaid) {
                 await addProviderEarningsFromBooking(tx, booking.id, payment.amount);
+                await createPaymentCompletedNotification(tx, booking.id, payment.amount);
             }
         }
 
@@ -946,6 +1092,7 @@ export const PaymentService = {
     initiatePayment,
     getAllPayments,
     getMyPayments,
+    sendPayLaterReminderNotifications,
     cancelUnpaidBookings,
     verifyCheckoutPayment,
     syncBookingPaymentStatus,

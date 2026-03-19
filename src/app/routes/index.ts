@@ -7,6 +7,7 @@ import { ServiceRoutes } from "../module/services/services.route";
 import { ReviewRoutes } from "../module/review/review.route";
 import { BookingRoutes } from "../module/booking/booking.route";
 import { PaymentRoutes } from "../module/payment/payment.route";
+import { NotificationRoutes } from "../module/notification/notification.route";
 
  
 
@@ -19,5 +20,6 @@ router.use("/services", ServiceRoutes);
 router.use("/reviews", ReviewRoutes);
 router.use("/bookings", BookingRoutes);
 router.use("/payments", PaymentRoutes);
+router.use("/notifications", NotificationRoutes);
 
 export const IndexRoutes = router;

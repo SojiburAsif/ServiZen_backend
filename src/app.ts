@@ -27,7 +27,14 @@ const setupAutoCancelJob = () => {
     
     setInterval(async () => {
         try {
-            const result = await (await import('./app/module/payment/payment.service')).PaymentService.cancelUnpaidBookings(dueMinutes);
+            const paymentService = (await import('./app/module/payment/payment.service')).PaymentService;
+
+            const reminderResult = await paymentService.sendPayLaterReminderNotifications(dueMinutes, 5);
+            if (reminderResult.remindedCount > 0) {
+                console.log(`Sent ${reminderResult.remindedCount} payment reminder notifications`);
+            }
+
+            const result = await paymentService.cancelUnpaidBookings(dueMinutes);
             if (result.cancelledCount > 0) {
                 console.log(`Auto-cancelled ${result.cancelledCount} unpaid bookings`);
             }

@@ -15,6 +15,7 @@ model User {
     updatedAt     DateTime   @updatedAt
     sessions      Session[]
     accounts      Account[]
+    notifications Notification[]
     client        Client?
     provider      Provider?
     admin         Admin?
