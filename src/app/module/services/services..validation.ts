@@ -10,6 +10,7 @@ const createServiceZodSchema = z.object({
     price: z.coerce.number().min(0, "Price cannot be negative"),
     duration: z.string().trim().max(100, "Duration cannot exceed 100 characters").optional(),
     specialtyId: z.string().uuid("Specialty id must be a valid UUID").optional(),
+    imageUrl: z.string().trim().url("Image url must be a valid URL").optional(),
 });
 
 const updateServiceZodSchema = z.object({
@@ -20,6 +21,7 @@ const updateServiceZodSchema = z.object({
     specialtyId: z.string().uuid("Specialty id must be a valid UUID").optional(),
     providerId: z.string().uuid("Provider id must be a valid UUID").optional(),
     isActive: z.boolean().optional(),
+    imageUrl: z.string().trim().url("Image url must be a valid URL").optional(),
 }).refine((payload) => Object.keys(payload).length > 0, {
     message: "At least one field is required to update service",
 });

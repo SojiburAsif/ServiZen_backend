@@ -4,6 +4,7 @@ model Service {
     description String  @db.Text
     price       Float
     duration    String?
+    imageUrl    String?  @db.Text
     isActive    Boolean @default(true)
 
     specialtyId String

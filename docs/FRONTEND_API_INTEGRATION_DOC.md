@@ -250,6 +250,7 @@ All paths below are relative to `/api/v1` unless specified.
 - `price`
 - optional `duration`
 - optional `specialtyId` UUID
+- optional `imageUrl` (valid URL)
 - Success: `201`, message `Service created successfully`
 
 ### GET `/services/all-services`
@@ -273,6 +274,7 @@ All paths below are relative to `/api/v1` unless specified.
 - Param `id` UUID
 - Body optional fields:
 - `name`, `description`, `price`, `duration`, `specialtyId`, `providerId`, `isActive`
+- `imageUrl`
 - Success: `200`, message `Service updated successfully`
 
 ### DELETE `/services/:id`

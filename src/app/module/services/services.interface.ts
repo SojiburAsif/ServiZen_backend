@@ -5,6 +5,7 @@ export interface ICreateServicePayload{
     price: number;
     duration?: string;
     specialtyId?: string;
+    imageUrl?: string;
     
 }
 
@@ -16,4 +17,5 @@ export interface IUpdateServicePayload {
     specialtyId?: string;
     providerId?: string;
     isActive?: boolean;
+    imageUrl?: string;
 }
