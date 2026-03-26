@@ -62,6 +62,7 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
                     throw new AppError(status.FORBIDDEN, 'Forbidden access! You do not have permission to access this resource.');
                 }
 
+                
                 req.user = {
                     userId: user.id,
                     role: user.Role,
@@ -92,11 +93,12 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
         }
 
         if (authRoles.length > 0 && !authRoles.includes(verifiedToken.data!.role as Role)) {
+            console.error(`[checkAuth] User role '${verifiedToken.data!.role}' tried to access '${req.originalUrl}' but it requires '${authRoles.join(', ')}'`);
             throw new AppError(status.FORBIDDEN, 'Forbidden access! You do not have permission to access this resource.');
         }
-
         next()
     } catch (error: any) {
         next(error);
     }
 };
+

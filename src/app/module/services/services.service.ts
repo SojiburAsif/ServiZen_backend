@@ -12,6 +12,9 @@ type TGetAllServicesQuery = {
     specialtyId?: string;
     minPrice?: string | number;
     maxPrice?: string | number;
+    searchTerm?: string;
+    category?: string;
+    priceSort?: string;
 };
 
 type TUpdateServicePayload = Partial<ICreateServicePayload> & {
@@ -227,6 +230,15 @@ const getAllServices = async (query: TGetAllServicesQuery = {}) => {
 
     const minPrice = query.minPrice !== undefined ? Number(query.minPrice) : undefined;
     const maxPrice = query.maxPrice !== undefined ? Number(query.maxPrice) : undefined;
+    const searchTerm = query.searchTerm?.toString().trim();
+    const category = query.category?.toString().trim();
+    const priceSort = query.priceSort?.toString().toLowerCase();
+
+    const priceSortOrder = priceSort === "asc" || priceSort === "desc" ? priceSort : undefined;
+
+    const orderBy: Prisma.ServiceOrderByWithRelationInput = priceSortOrder
+        ? { price: priceSortOrder }
+        : { createdAt: "desc" };
 
     const where: Prisma.ServiceWhereInput = {
         isDeleted: false,
@@ -238,6 +250,32 @@ const getAllServices = async (query: TGetAllServicesQuery = {}) => {
                 ...(maxPrice !== undefined && { lte: maxPrice }),
             },
         }),
+        ...(searchTerm && {
+            OR: [
+                {
+                    name: {
+                        contains: searchTerm,
+                        mode: "insensitive",
+                    },
+                },
+                {
+                    description: {
+                        contains: searchTerm,
+                        mode: "insensitive",
+                    },
+                },
+            ],
+        }),
+        ...(category && {
+            specialty: {
+                is: {
+                    title: {
+                        contains: category,
+                        mode: "insensitive",
+                    },
+                },
+            },
+        }),
     };
 
     const [services, total] = await Promise.all([
@@ -245,9 +283,7 @@ const getAllServices = async (query: TGetAllServicesQuery = {}) => {
             where,
             skip,
             take: limit,
-            orderBy: {
-                createdAt: "desc",
-            },
+            orderBy,
             select: serviceDetailsSelect,
         }),
         prisma.service.count({ where }),

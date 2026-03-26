@@ -5,7 +5,7 @@ import AppError from "../../errorHelpers/AppError";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
-import { ICreateProviderPayload  } from "./provider.interface";
+import { ICreateProviderPayload } from "./provider.interface";
 
 const providerDetailsSelect = {
     id: true,
@@ -109,6 +109,7 @@ const createProvider = async (payload: ICreateProviderPayload) => {
             password,
             Role: Role.PROVIDER,
             name: providerInfo.name,
+            image: providerInfo.profilePhoto,
             needPasswordchange: true,
         }
     });
@@ -142,9 +143,9 @@ const getAllProviders = async (options: any = {}) => {
     const { page = 1, limit = 10, ...filterData } = options;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where: Prisma.ProviderWhereInput = { 
+    const where: Prisma.ProviderWhereInput = {
         isDeleted: false,
-        ...filterData 
+        ...filterData
     };
 
     const [data, total] = await Promise.all([
@@ -213,12 +214,12 @@ const getMyProviderIdOrThrow = async (user: IRequestUser) => {
 
 const updateProvider = async (id: string, payload: any) => {
     await getExistingProviderOrThrow(id);
-    
-    
+
+
     const { provider: providerData, specialties } = payload;
 
     await prisma.$transaction(async (tx) => {
-     
+
         if (providerData) {
             await tx.provider.update({
                 where: { id },
@@ -226,13 +227,13 @@ const updateProvider = async (id: string, payload: any) => {
             });
         }
 
-       
+
         if (specialties && specialties.length > 0) {
             for (const item of specialties) {
                 const { specialtyId, shouldDelete } = item;
-                
+
                 if (shouldDelete) {
-                    await tx.providerSpecialty.deleteMany({ 
+                    await tx.providerSpecialty.deleteMany({
                         where: {
                             providerId: id,
                             specialtyId: specialtyId
@@ -279,14 +280,14 @@ const deleteProvider = async (id: string) => {
         // Soft delete user
         await tx.user.update({
             where: { id: existingProvider.userId },
-            data: { 
-                status: UserStatus.DELETED, 
-                isDeleted: true, 
-                deletedAt 
+            data: {
+                status: UserStatus.DELETED,
+                isDeleted: true,
+                deletedAt
             }
         });
 
- 
+
         await tx.session?.deleteMany({
             where: { userId: existingProvider.userId }
         });

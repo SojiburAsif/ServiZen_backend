@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import status from "http-status";
 import { UserStatus } from "../../../generated/prisma/client";
@@ -43,7 +44,13 @@ const getUserAndValidateNotGoogleAuth = async (email: string) => {
 
 
 const registerUser = async (payload: IRegisterClientPayload) => {
-    const { name, email, password, profilePhoto, contactNumber, address } = payload;
+    // Accept both 'image' and 'profilePhoto' from payload
+    const { name, email, password, contactNumber, address } = payload as any;
+    // Always use user profilePhoto for client profilePhoto
+    const profilePhoto = (payload as any).profilePhoto || (payload as any).image || null;
+    // Debug log to help trace issues
+    // eslint-disable-next-line no-console
+    console.log('Register payload:', payload, 'Resolved profilePhoto:', profilePhoto);
 
     let createdUserId: string | null = null;
     let createdClientId: string | null = null;
@@ -63,15 +70,23 @@ const registerUser = async (payload: IRegisterClientPayload) => {
 
         createdUserId = data.user.id;
 
+        // Update user table with image if provided
+        if (profilePhoto) {
+            await prisma.user.update({
+                where: { id: createdUserId },
+                data: { image: profilePhoto },
+            });
+        }
+
         const client = await prisma.$transaction(async (tx) => {
             const newClient = await tx.client.create({
                 data: {
                     name,
                     email,
                     userId: createdUserId!,
-                    ...(profilePhoto && { profilePhoto }),
-                    ...(contactNumber && { contactNumber }),
-                    ...(address && { address }),
+                    profilePhoto: profilePhoto || undefined,
+                    contactNumber: contactNumber || undefined,
+                    address: address || undefined,
                 },
                 include: {
                     user: true,
@@ -102,16 +117,13 @@ const registerUser = async (payload: IRegisterClientPayload) => {
             emailVerified: data.user.emailVerified
         });
 
-
         return {
             ...data,
             accessToken,
             refreshToken,
             client
         };
-
-
-    } catch (error) {
+    } catch (error: any) {
         // Cleanup for partial create state.
         if (createdClientId) {
             await prisma.client.deleteMany({ where: { id: createdClientId } });
@@ -119,6 +131,11 @@ const registerUser = async (payload: IRegisterClientPayload) => {
 
         if (createdUserId) {
             await prisma.user.deleteMany({ where: { id: createdUserId } });
+        }
+
+        // Prisma unique constraint error (duplicate email)
+        if (error?.code === 'P2002' && error?.meta?.target?.includes('email')) {
+            throw new AppError(status.CONFLICT, 'This email is already registered. Please use a different email.');
         }
 
         throw error;
@@ -437,11 +454,18 @@ const googleLoginSuccessF = async (session : Record<string, any>) =>{
     })
 
     if(!isclientExists){
+        // Get user image from user table and use as client profilePhoto
+        const user = await prisma.user.findUnique({
+            where: { id: session.user.id },
+        });
         await prisma.client.create({
             data : {
                 userId : session.user.id,
                 name : session.user.name,
                 email : session.user.email,
+                profilePhoto: user?.image || undefined,
+                contactNumber: 'N/A',
+                address: 'N/A',
             }
         })
     }

@@ -31,6 +31,16 @@ const getAllServicesQueryZodSchema = z.object({
     specialtyId: z.string().uuid("Specialty id must be a valid UUID").optional(),
     minPrice: z.coerce.number().min(0, "Minimum price cannot be negative").optional(),
     maxPrice: z.coerce.number().min(0, "Maximum price cannot be negative").optional(),
+    searchTerm: z.string().trim().min(1, "Search term cannot be empty").max(100, "Search term cannot exceed 100 characters").optional(),
+    category: z.string().trim().min(1, "Category cannot be empty").max(100, "Category cannot exceed 100 characters").optional(),
+    priceSort: z
+        .string()
+        .trim()
+        .transform((value) => value.toLowerCase())
+        .refine((value) => value === "asc" || value === "desc", {
+            message: "Price sort must be either 'asc' or 'desc'",
+        })
+        .optional(),
 }).refine((query) => {
     if (query.minPrice === undefined || query.maxPrice === undefined) {
         return true;
