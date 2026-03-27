@@ -81,6 +81,11 @@ const getAllUsers = async (query: { page?: number; limit?: number }) => {
                 Role: true,
                 createdAt: true,
                 updatedAt: true,
+                accounts: {
+                    select: {
+                        providerId: true,
+                    },
+                },
                 client: {
                     select: {
                         id: true,
@@ -91,10 +96,11 @@ const getAllUsers = async (query: { page?: number; limit?: number }) => {
         prisma.user.count({ where }),
     ]);
 
-    // Add isGoogleLogin based on client existence
+    // Add isGoogleLogin based on account provider
     const usersWithGoogle = data.map(user => ({
         ...user,
-        isGoogleLogin: !!user.client,
+        isGoogleLogin: user.accounts.some(account => account.providerId === 'google'),
+        accounts: undefined, // remove accounts from response
         client: undefined, // remove client from response
     }));
 
@@ -262,6 +268,11 @@ const getUserById = async (userId: string) => {
             Role: true,
             createdAt: true,
             updatedAt: true,
+            accounts: {
+                select: {
+                    providerId: true,
+                },
+            },
             admin: {
                 select: {
                     id: true,
@@ -315,10 +326,11 @@ const getUserById = async (userId: string) => {
         throw new AppError(status.NOT_FOUND, "User not found");
     }
 
-    // Add isGoogleLogin based on client existence
+    // Add isGoogleLogin based on account provider
     const userWithDetails = {
         ...user,
-        isGoogleLogin: !!user.client,
+        isGoogleLogin: user.accounts.some(account => account.providerId === 'google'),
+        accounts: undefined, // remove accounts from response
     };
 
     return userWithDetails;

@@ -39,7 +39,7 @@ Admins have full management access across all modules. They can create, read, up
   - `limit`: default 10 (max 100)
 - **Success**: `200`, message `"Users fetched successfully"`
 - **Response Data**: Paginated list of users with `id`, `email`, `name`, `status`, `Role`, `emailVerified`, `isGoogleLogin` (boolean), `createdAt`, `updatedAt`
-- **Notes**: `isGoogleLogin` indicates if user logged in via Google (has client record).
+- **Notes**: `isGoogleLogin` indicates if user logged in via Google (checked from Account model providerId).
 
 ### GET `/users/:id`
 - **Purpose**: Get detailed information about a specific user.
@@ -51,7 +51,7 @@ Admins have full management access across all modules. They can create, read, up
   - `admin` object (if user is admin): full admin profile details
   - `provider` object (if user is provider): full provider profile with specialties
   - `client` object (if user is client): full client profile
-- **Notes**: Returns all related data based on user's role.
+- **Notes**: Returns all related data based on user's role. `isGoogleLogin` indicates Google login via Account model.
 
 ### PATCH `/users/:id/status`
 - **Purpose**: Update any user's status.
