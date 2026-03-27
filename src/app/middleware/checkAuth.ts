@@ -69,14 +69,6 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
                     email: user.email,
                 };
             }
-
-            const accessToken = CookieUtils.getCookie(req, 'accessToken');
-
-            if (!accessToken) {
-                throw new AppError(status.UNAUTHORIZED, 'Unauthorized access! No access token provided.');
-            }
-
-
         }
 
         //Access Token Verification
@@ -92,8 +84,17 @@ export const checkAuth = (...authRoles: Role[]) => async (req: Request, res: Res
             throw new AppError(status.UNAUTHORIZED, 'Unauthorized access! Invalid access token.');
         }
 
-        if (authRoles.length > 0 && !authRoles.includes(verifiedToken.data!.role as Role)) {
-            console.error(`[checkAuth] User role '${verifiedToken.data!.role}' tried to access '${req.originalUrl}' but it requires '${authRoles.join(', ')}'`);
+        // Set req.user from access token if not already set from session
+        if (!req.user) {
+            req.user = {
+                userId: verifiedToken.data!.userId,
+                role: verifiedToken.data!.role as Role,
+                email: verifiedToken.data!.email,
+            };
+        }
+
+        if (authRoles.length > 0 && !authRoles.includes(req.user.role)) {
+            console.error(`[checkAuth] User role '${req.user.role}' tried to access '${req.originalUrl}' but it requires '${authRoles.join(', ')}'`);
             throw new AppError(status.FORBIDDEN, 'Forbidden access! You do not have permission to access this resource.');
         }
         next()

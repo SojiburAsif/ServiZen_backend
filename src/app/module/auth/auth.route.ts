@@ -14,6 +14,7 @@ router.post("/login", validateRequest(AuthValidation.loginUserValidationSchema),
 
 router.get("/me", checkAuth(Role.USER, Role.ADMIN , Role.PROVIDER), AuthController.getLoggedInUser)
 
+router.patch("/me", checkAuth(Role.USER), validateRequest(AuthValidation.updateClientProfileValidationSchema), AuthController.updateMyProfile)
 
 router.post("/refresh-token", AuthController.getNewToken)
 

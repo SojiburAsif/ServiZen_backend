@@ -77,6 +77,21 @@ const getLoggedInUser = catchAsync(
     }
 )
 
+const updateMyProfile = catchAsync(
+    async (req: Request, res: Response) => {
+        const payload = req.body;
+        const user = req.user;
+
+        const result = await AuthService.updateMyProfile(user, payload);
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "Profile updated successfully",
+            data: result,
+        })
+    }
+)
+
 const getNewToken = catchAsync(
     async (req: Request, res: Response) => {
         const refreshToken = req.cookies.refreshToken;
@@ -256,6 +271,7 @@ export const AuthController = {
     registerClient,
     loginUser,
     getLoggedInUser,
+    updateMyProfile,
     getNewToken,
     changePassword,
     logoutUser,

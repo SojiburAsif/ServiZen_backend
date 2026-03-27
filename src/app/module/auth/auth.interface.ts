@@ -16,3 +16,10 @@ export interface IChangePasswordPayload {
     currentPassword: string;
     newPassword: string;
 }
+
+export interface IUpdateClientProfilePayload {
+    name?: string;
+    profilePhoto?: string;
+    contactNumber?: string;
+    address?: string;
+}

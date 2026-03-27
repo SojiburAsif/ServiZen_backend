@@ -58,10 +58,36 @@ const changePasswordValidationSchema = z.object({
     message: "New password and confirm new password must match",
 });
 
+const updateClientProfileValidationSchema = z.object({
+    name: z
+        .string()
+        .trim()
+        .min(2, "Name must be at least 2 characters")
+        .max(100, "Name cannot exceed 100 characters")
+        .optional(),
+    profilePhoto: z
+        .string()
+        .trim()
+        .url("Profile photo must be a valid URL")
+        .optional(),
+    contactNumber: z
+        .string()
+        .trim()
+        .regex(bdPhoneRegex, "Invalid Bangladeshi contact number")
+        .optional(),
+    address: z
+        .string()
+        .trim()
+        .min(5, "Address must be at least 5 characters")
+        .max(200, "Address cannot exceed 200 characters")
+        .optional(),
+});
+
 
 export const AuthValidation = {
     registerUserValidationSchema,
     loginUserValidationSchema,
-    changePasswordValidationSchema
+    changePasswordValidationSchema,
+    updateClientProfileValidationSchema,
 };
     

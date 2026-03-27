@@ -2,12 +2,13 @@
 
 import status from "http-status";
 import { UserStatus } from "../../../generated/prisma/client";
+import { Role } from "../../../generated/prisma/enums";
 import AppError from "../../errorHelpers/AppError";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { auth } from "../../lib/auth";
 import { prisma } from "../../lib/prisma";
 import { tokenUtils } from "../../utils/token";
-import { IChangePasswordPayload, ILoginUserPayload, IRegisterClientPayload, } from "./auth.interface";
+import { IChangePasswordPayload, ILoginUserPayload, IRegisterClientPayload, IUpdateClientProfilePayload, } from "./auth.interface";
 import { jwtUtils } from "../../utils/jwt";
 import { envVars } from "../../../config/env";
 import { JwtPayload } from "jsonwebtoken";
@@ -49,7 +50,6 @@ const registerUser = async (payload: IRegisterClientPayload) => {
     // Always use user profilePhoto for client profilePhoto
     const profilePhoto = (payload as any).profilePhoto || (payload as any).image || null;
     // Debug log to help trace issues
-    // eslint-disable-next-line no-console
     console.log('Register payload:', payload, 'Resolved profilePhoto:', profilePhoto);
 
     let createdUserId: string | null = null;
@@ -216,6 +216,47 @@ const getLoggedInUser = async (user: IRequestUser) => {
         throw new AppError(status.NOT_FOUND, "User not found");
     }
     return isUserExists;
+}
+
+const updateMyProfile = async (user: IRequestUser, payload: IUpdateClientProfilePayload) => {
+    if (user.role !== Role.USER) {
+        throw new AppError(status.FORBIDDEN, "Only users can update their profile");
+    }
+
+    const client = await prisma.client.findUnique({
+        where: { userId: user.userId },
+    });
+
+    if (!client) {
+        throw new AppError(status.NOT_FOUND, "Client profile not found");
+    }
+
+    const { name, profilePhoto, contactNumber, address } = payload;
+
+    await prisma.$transaction(async (tx) => {
+        // Update client
+        await tx.client.update({
+            where: { id: client.id },
+            data: {
+                ...(name && { name }),
+                ...(profilePhoto && { profilePhoto }),
+                ...(contactNumber && { contactNumber }),
+                ...(address && { address }),
+            },
+        });
+
+        // Update user
+        await tx.user.update({
+            where: { id: user.userId },
+            data: {
+                ...(name && { name }),
+                ...(profilePhoto && { image: profilePhoto }),
+            },
+        });
+    });
+
+    // Return updated user
+    return getLoggedInUser(user);
 }
 
 const getNewToken = async (refreshToken: string, sessionToken: string) => {
@@ -430,7 +471,6 @@ const resetPassword = async (email : string, otp : string, newPassword : string)
         }
     })
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const googleLoginSuccessF = async (session : Record<string, any>) =>{
     if (!session || !session.user || !session.user.id) {
         throw new AppError(status.UNAUTHORIZED, "Invalid session");
@@ -447,6 +487,15 @@ const googleLoginSuccessF = async (session : Record<string, any>) =>{
         throw new AppError(status.BAD_REQUEST, "Google account not linked");
     }
 
+    // Fetch the full user data from DB
+    const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+    });
+
+    if (!user) {
+        throw new AppError(status.NOT_FOUND, "User not found");
+    }
+
     const isclientExists = await prisma.client.findUnique({
         where : {
             userId : session.user.id,
@@ -454,30 +503,35 @@ const googleLoginSuccessF = async (session : Record<string, any>) =>{
     })
 
     if(!isclientExists){
-        // Get user image from user table and use as client profilePhoto
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-        });
         await prisma.client.create({
             data : {
                 userId : session.user.id,
-                name : session.user.name,
-                email : session.user.email,
-                profilePhoto: user?.image || undefined,
-                contactNumber: 'N/A',
-                address: 'N/A',
+                name : user.name,
+                email : user.email,
+                profilePhoto: user.image || undefined,
+                contactNumber: undefined,
+                address: undefined,
             }
         })
     }
+
     const accessToken = tokenUtils.getAccessToken({
-        userId: session.user.id,
-        role: session.user.role,
-        name: session.user.name,
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.Role,
+        status: user.status,
+        isDeleted: user.isDeleted,
+        emailVerified: user.emailVerified
     });
     const refreshToken = tokenUtils.getRefreshToken({
-        userId: session.user.id,
-        role: session.user.role,
-        name: session.user.name,
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.Role,
+        status: user.status,
+        isDeleted: user.isDeleted,
+        emailVerified: user.emailVerified
     });
 
     return {
@@ -491,6 +545,7 @@ export const AuthService = {
     registerUser,
     loginUser,
     getLoggedInUser,
+    updateMyProfile,
     getNewToken,
     changePassword,
     logoutUser,
