@@ -141,6 +141,17 @@ const deleteProviderValidationSchema = z.object({
 	params: providerIdParamSchema,
 });
 
+const getAllProvidersForAdminValidationSchema = z.object({
+	query: getAllProvidersQuerySchema,
+});
+
+const updateProviderStatusValidationSchema = z.object({
+	params: providerIdParamSchema,
+	body: z.object({
+		isDeleted: z.boolean(),
+	}),
+});
+
 export const ProviderValidation = {
 	createProviderValidationSchema,
 	getAllProvidersValidationSchema,
@@ -148,4 +159,6 @@ export const ProviderValidation = {
 	updateProviderValidationSchema,
 	updateMyProfileValidationSchema,
 	deleteProviderValidationSchema,
+	getAllProvidersForAdminValidationSchema,
+	updateProviderStatusValidationSchema,
 };

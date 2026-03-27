@@ -350,6 +350,95 @@ const updateMyProfile = async (user: IRequestUser, payload: Record<string, unkno
     return getProviderById(providerId);
 };
 
+const getAllProvidersForAdmin = async (options: any = {}) => {
+    const { page = 1, limit = 10, ...filterData } = options;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Remove isDeleted filter to show all providers
+    const where: Prisma.ProviderWhereInput = {
+        ...filterData
+    };
+
+    const [data, total] = await Promise.all([
+        prisma.provider.findMany({
+            where,
+            skip,
+            take: Number(limit),
+            orderBy: { createdAt: "desc" },
+            select: {
+                ...providerListSelect,
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        name: true,
+                        Role: true,
+                        status: true,
+                        emailVerified: true,
+                        image: true,
+                        isDeleted: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                },
+            }
+        }),
+        prisma.provider.count({ where })
+    ]);
+
+    return {
+        meta: {
+            page: Number(page),
+            limit: Number(limit),
+            total
+        },
+        data
+    };
+};
+
+const updateProviderStatus = async (id: string, isDeleted: boolean) => {
+    const provider = await prisma.provider.findFirst({
+        where: { id },
+        include: { user: true }
+    });
+
+    if (!provider) {
+        throw new AppError(status.NOT_FOUND, "Provider not found");
+    }
+
+    const deletedAt = isDeleted ? new Date() : null;
+
+    await prisma.$transaction(async (tx) => {
+        // Update provider
+        await tx.provider.update({
+            where: { id },
+            data: { isDeleted, deletedAt }
+        });
+
+        // Update associated user
+        await tx.user.update({
+            where: { id: provider.userId },
+            data: {
+                status: isDeleted ? UserStatus.DELETED : UserStatus.ACTIVE,
+                isDeleted,
+                deletedAt
+            }
+        });
+
+        // Handle sessions if deleting
+        if (isDeleted) {
+            await tx.session.deleteMany({
+                where: { userId: provider.userId }
+            });
+        }
+    });
+
+    return {
+        message: isDeleted ? "Provider deleted successfully" : "Provider restored successfully",
+        isDeleted
+    };
+};
+
 export const ProviderService = {
     createProvider,
     getAllProviders,
@@ -358,4 +447,6 @@ export const ProviderService = {
     updateProvider,
     updateMyProfile,
     deleteProvider,
+    getAllProvidersForAdmin,
+    updateProviderStatus,
 };

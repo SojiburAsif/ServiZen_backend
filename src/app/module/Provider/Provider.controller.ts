@@ -104,6 +104,35 @@ const deleteProvider = catchAsync(
     }
 )
 
+const getAllProvidersForAdmin = catchAsync(
+    async (req: Request, res: Response) => {
+
+        const result = await ProviderService.getAllProvidersForAdmin(req.query);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: "All providers fetched successfully for admin",
+            data: result,
+        })
+    }
+)
+
+const updateProviderStatus = catchAsync(
+    async (req: Request, res: Response) => {
+        const { isDeleted } = req.body;
+
+        const result = await ProviderService.updateProviderStatus(req.params.id as string, isDeleted);
+
+        sendResponse(res, {
+            httpStatusCode: status.OK,
+            success: true,
+            message: result.message,
+            data: result,
+        })
+    }
+)
+
 export const ProviderController = {
     createProvider,
     getAllProviders,
@@ -112,4 +141,6 @@ export const ProviderController = {
     updateProvider,
     updateMyProfile,
     deleteProvider,
+    getAllProvidersForAdmin,
+    updateProviderStatus,
 };

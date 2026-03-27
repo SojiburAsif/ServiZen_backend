@@ -24,4 +24,8 @@ router.patch("/:id", checkAuth(Role.ADMIN),  validateRequest(ProviderValidation.
 
 router.delete("/:id", checkAuth(Role.ADMIN), validateRequest(ProviderValidation.deleteProviderValidationSchema), ProviderController.deleteProvider);
 
+router.get("/admin/all", checkAuth(Role.ADMIN), validateRequest(ProviderValidation.getAllProvidersForAdminValidationSchema), ProviderController.getAllProvidersForAdmin);
+
+router.patch("/admin/:id/status", checkAuth(Role.ADMIN), validateRequest(ProviderValidation.updateProviderStatusValidationSchema), ProviderController.updateProviderStatus);
+
 export const ProviderRoutes = router;

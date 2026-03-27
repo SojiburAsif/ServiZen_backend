@@ -111,6 +111,32 @@ Admins have full management access across all modules. They can create, read, up
 - **Success**: `200`, message `"Provider deleted successfully"`
 - **Notes**: Sets `isDeleted: true` on provider and user, clears sessions.
 
+### GET `/providers/admin/all`
+- **Purpose**: Get ALL providers for admin management (including deleted ones).
+- **Auth**: `ADMIN`
+- **Query**:
+  - `page`: default 1
+  - `limit`: default 10 (max 100)
+- **Success**: `200`, message `"All providers fetched successfully for admin"`
+- **Response Data**: Paginated list of ALL providers (regardless of `isDeleted` status) with:
+  - Provider details: `id`, `name`, `email`, `isDeleted`, `registrationNumber`, `experience`, `averageRating`
+  - Associated user info: `id`, `email`, `status`, `isDeleted`
+  - Specialties array
+- **Notes**: Key difference from public `GET /providers` - shows deleted providers for admin oversight.
+
+### PATCH `/providers/admin/:id/status`
+- **Purpose**: Update provider's deletion status (soft delete/restore).
+- **Auth**: `ADMIN`
+- **Param**: `id` (UUID)
+- **Body**: `{ "isDeleted": boolean }` (required)
+- **Success**: `200`, message `"Provider deleted successfully"` or `"Provider restored successfully"`
+- **Process**:
+  - Updates provider `isDeleted` status
+  - Updates associated user `isDeleted` and `status` (ACTIVE when restored, DELETED when deleted)
+  - Clears user sessions when deleting
+  - Sets user status to ACTIVE when restoring
+- **Notes**: Admins cannot change their own provider status. Use for provider account management.
+
 ## 3. Booking Management (`/bookings`)
 
 ### GET `/bookings/all`
@@ -195,9 +221,10 @@ Admins have full management access across all modules. They can create, read, up
    - Create new admins via `POST /users/create-admin` when needed.
 
 2. **Provider Oversight**:
-   - List all providers with `GET /providers`.
+   - List all providers with `GET /providers/admin/all` (includes deleted ones).
    - Edit profiles via `PATCH /providers/:id`.
-   - Delete inactive providers with `DELETE /providers/:id`.
+   - Delete/restore providers with `PATCH /providers/admin/:id/status`.
+   - Permanently remove inactive providers with `DELETE /providers/:id`.
 
 3. **Content Moderation**:
    - Delete inappropriate reviews via `DELETE /reviews/:id`.
