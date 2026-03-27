@@ -79,6 +79,7 @@ const getAllUsers = async (query: { page?: number; limit?: number }) => {
                 status: true,
                 emailVerified: true,
                 Role: true,
+                image: true,
                 createdAt: true,
                 updatedAt: true,
                 accounts: {
@@ -266,6 +267,7 @@ const getUserById = async (userId: string) => {
             status: true,
             emailVerified: true,
             Role: true,
+            image: true,
             createdAt: true,
             updatedAt: true,
             accounts: {
