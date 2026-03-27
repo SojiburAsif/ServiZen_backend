@@ -73,6 +73,16 @@ const updateUserStatus = catchAsync(
         const { id } = req.params;
         const payload = req.body;
 
+        // Prevent admin from changing their own status
+        if (req.user?.userId === id) {
+            return sendResponse(res, {
+                httpStatusCode: status.FORBIDDEN,
+                success: false,
+                message: "You cannot change your own status",
+                data: null,
+            });
+        }
+
         const result = await UserService.updateUserStatus(id as string, payload);
 
         sendResponse(res, {
@@ -87,6 +97,16 @@ const updateUserStatus = catchAsync(
 const deleteUser = catchAsync(
     async (req: Request, res: Response) => {
         const { id } = req.params;
+
+        // Prevent admin from deleting themselves
+        if (req.user?.userId === id) {
+            return sendResponse(res, {
+                httpStatusCode: status.FORBIDDEN,
+                success: false,
+                message: "You cannot delete your own account",
+                data: null,
+            });
+        }
 
         const result = await UserService.deleteUser(id as string);
 

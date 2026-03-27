@@ -59,14 +59,14 @@ Admins have full management access across all modules. They can create, read, up
 - **Param**: `id` (UUID)
 - **Body**: `{ "status": "ACTIVE" | "BLOCKED" | "DELETED" }`
 - **Success**: `200`, message `"User status updated successfully"`
-- **Notes**: Cannot update deleted users.
+- **Notes**: Cannot update deleted users. Admins cannot change their own status.
 
 ### DELETE `/users/:id`
 - **Purpose**: Soft-delete any user and their related records (admin/provider/client).
 - **Auth**: `ADMIN`
 - **Param**: `id` (UUID)
 - **Success**: `200`, message `"User deleted successfully"`
-- **Notes**: Sets `isDeleted: true` on user and related entities.
+- **Notes**: Sets `isDeleted: true` on user and related entities. Admins cannot delete their own accounts.
 
 ## 2. Provider Management (`/providers`)
 
