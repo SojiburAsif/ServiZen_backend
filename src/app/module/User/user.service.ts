@@ -60,9 +60,8 @@ const getAllUsers = async (query: { page?: number; limit?: number }) => {
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
 
-    const where = {
-        isDeleted: false,
-    };
+    // Remove isDeleted filter to show all users (active and deleted)
+    const where = {};
 
     const [data, total] = await Promise.all([
         prisma.user.findMany({
@@ -77,6 +76,7 @@ const getAllUsers = async (query: { page?: number; limit?: number }) => {
                 email: true,
                 name: true,
                 status: true,
+                isDeleted: true,
                 emailVerified: true,
                 Role: true,
                 image: true,
@@ -124,18 +124,28 @@ const updateUserStatus = async (userId: string, payload: IUpdateUserStatusPayloa
         throw new AppError(status.NOT_FOUND, "User not found");
     }
 
-    if (user.isDeleted) {
-        throw new AppError(status.BAD_REQUEST, "Cannot update deleted user");
+    // Allow updating deleted users (for restoration)
+    // if (user.isDeleted) {
+    //     throw new AppError(status.BAD_REQUEST, "Cannot update deleted user");
+    // }
+
+    const updateData: any = {};
+    if (payload.status !== undefined) {
+        updateData.status = payload.status;
+    }
+    if (payload.isDeleted !== undefined) {
+        updateData.isDeleted = payload.isDeleted;
     }
 
     const updatedUser = await prisma.user.update({
         where: { id: userId },
-        data: { status: payload.status },
+        data: updateData,
         select: {
             id: true,
             email: true,
             name: true,
             status: true,
+            isDeleted: true,
             emailVerified: true,
             Role: true,
         },
@@ -265,6 +275,7 @@ const getUserById = async (userId: string) => {
             email: true,
             name: true,
             status: true,
+            isDeleted: true,
             emailVerified: true,
             Role: true,
             image: true,

@@ -60,6 +60,9 @@ export const getAllUsersValidationSchema = z.object({
 
 export const updateUserStatusValidationSchema = z.object({
     body: z.object({
-        status: z.enum(["ACTIVE", "BLOCKED", "DELETED"]),
+        status: z.enum(["ACTIVE", "BLOCKED", "DELETED"]).optional(),
+        isDeleted: z.boolean().optional(),
+    }).refine((data) => data.status !== undefined || data.isDeleted !== undefined, {
+        message: "At least one of 'status' or 'isDeleted' must be provided",
     }),
 });

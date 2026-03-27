@@ -24,5 +24,6 @@ export interface ICreateAdminPayload {
 }
 
 export interface IUpdateUserStatusPayload {
-    status: "ACTIVE" | "BLOCKED" | "DELETED";
+    status?: "ACTIVE" | "BLOCKED" | "DELETED";
+    isDeleted?: boolean;
 }

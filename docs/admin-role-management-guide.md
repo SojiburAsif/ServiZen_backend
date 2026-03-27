@@ -38,7 +38,7 @@ Admins have full management access across all modules. They can create, read, up
   - `page`: default 1
   - `limit`: default 10 (max 100)
 - **Success**: `200`, message `"Users fetched successfully"`
-- **Response Data**: Paginated list of users with `id`, `email`, `name`, `status`, `Role`, `emailVerified`, `image`, `isGoogleLogin` (boolean), `createdAt`, `updatedAt`
+- **Response Data**: Paginated list of users with `id`, `email`, `name`, `status`, `isDeleted`, `Role`, `emailVerified`, `image`, `isGoogleLogin` (boolean), `createdAt`, `updatedAt`
 - **Notes**: `isGoogleLogin` indicates if user logged in via Google (checked from Account model providerId).
 
 ### GET `/users/:id`
@@ -47,19 +47,19 @@ Admins have full management access across all modules. They can create, read, up
 - **Param**: `id` (UUID)
 - **Success**: `200`, message `"User fetched successfully"`
 - **Response Data**: Complete user details including:
-  - Basic user info: `id`, `email`, `name`, `status`, `Role`, `emailVerified`, `image`, `isGoogleLogin`
+  - Basic user info: `id`, `email`, `name`, `status`, `isDeleted`, `Role`, `emailVerified`, `image`, `isGoogleLogin`
   - `admin` object (if user is admin): full admin profile details
   - `provider` object (if user is provider): full provider profile with specialties
   - `client` object (if user is client): full client profile
 - **Notes**: Returns all related data based on user's role. `isGoogleLogin` indicates Google login via Account model.
 
 ### PATCH `/users/:id/status`
-- **Purpose**: Update any user's status.
+- **Purpose**: Update any user's status or deletion state.
 - **Auth**: `ADMIN`
 - **Param**: `id` (UUID)
-- **Body**: `{ "status": "ACTIVE" | "BLOCKED" | "DELETED" }`
+- **Body**: Optional fields: `{ "status": "ACTIVE" | "BLOCKED" | "DELETED", "isDeleted": boolean }` (at least one field required)
 - **Success**: `200`, message `"User status updated successfully"`
-- **Notes**: Cannot update deleted users. Admins cannot change their own status.
+- **Notes**: Admins cannot change their own status. Can update deleted users for restoration.
 
 ### DELETE `/users/:id`
 - **Purpose**: Soft-delete any user and their related records (admin/provider/client).
