@@ -31,6 +31,43 @@ Admins have full management access across all modules. They can create, read, up
 - **Success**: `200`, message `"Admins fetched successfully"`
 - **Response Data**: Paginated list of admin profiles with user details.
 
+### GET `/users/all`
+- **Purpose**: List all users across the system with pagination.
+- **Auth**: `ADMIN`
+- **Query**:
+  - `page`: default 1
+  - `limit`: default 10 (max 100)
+- **Success**: `200`, message `"Users fetched successfully"`
+- **Response Data**: Paginated list of users with `id`, `email`, `name`, `status`, `Role`, `emailVerified`, `isGoogleLogin` (boolean), `createdAt`, `updatedAt`
+- **Notes**: `isGoogleLogin` indicates if user logged in via Google (has client record).
+
+### GET `/users/:id`
+- **Purpose**: Get detailed information about a specific user.
+- **Auth**: `ADMIN`
+- **Param**: `id` (UUID)
+- **Success**: `200`, message `"User fetched successfully"`
+- **Response Data**: Complete user details including:
+  - Basic user info: `id`, `email`, `name`, `status`, `Role`, `emailVerified`, `isGoogleLogin`
+  - `admin` object (if user is admin): full admin profile details
+  - `provider` object (if user is provider): full provider profile with specialties
+  - `client` object (if user is client): full client profile
+- **Notes**: Returns all related data based on user's role.
+
+### PATCH `/users/:id/status`
+- **Purpose**: Update any user's status.
+- **Auth**: `ADMIN`
+- **Param**: `id` (UUID)
+- **Body**: `{ "status": "ACTIVE" | "BLOCKED" | "DELETED" }`
+- **Success**: `200`, message `"User status updated successfully"`
+- **Notes**: Cannot update deleted users.
+
+### DELETE `/users/:id`
+- **Purpose**: Soft-delete any user and their related records (admin/provider/client).
+- **Auth**: `ADMIN`
+- **Param**: `id` (UUID)
+- **Success**: `200`, message `"User deleted successfully"`
+- **Notes**: Sets `isDeleted: true` on user and related entities.
+
 ## 2. Provider Management (`/providers`)
 
 ### POST `/providers`

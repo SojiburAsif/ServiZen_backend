@@ -5,7 +5,7 @@ import { ProviderService } from "../Provider/provder.service";
 import { ICreateProviderPayload } from "../Provider/provider.interface";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
-import { ICreateAdminPayload } from "./user.interface";
+import { ICreateAdminPayload, IUpdateUserStatusPayload } from "./user.interface";
 
 
 const createProvider = async (payload: ICreateProviderPayload) => {
@@ -53,6 +53,135 @@ const getAllAdmins = async (query: { page?: number; limit?: number }) => {
         },
         data,
     };
+};
+
+const getAllUsers = async (query: { page?: number; limit?: number }) => {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where = {
+        isDeleted: false,
+    };
+
+    const [data, total] = await Promise.all([
+        prisma.user.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: {
+                createdAt: "desc",
+            },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                status: true,
+                emailVerified: true,
+                Role: true,
+                createdAt: true,
+                updatedAt: true,
+                client: {
+                    select: {
+                        id: true,
+                    },
+                },
+            },
+        }),
+        prisma.user.count({ where }),
+    ]);
+
+    // Add isGoogleLogin based on client existence
+    const usersWithGoogle = data.map(user => ({
+        ...user,
+        isGoogleLogin: !!user.client,
+        client: undefined, // remove client from response
+    }));
+
+    return {
+        meta: {
+            page,
+            limit,
+            total,
+        },
+        data: usersWithGoogle,
+    };
+};
+
+const updateUserStatus = async (userId: string, payload: IUpdateUserStatusPayload) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+    });
+
+    if (!user) {
+        throw new AppError(status.NOT_FOUND, "User not found");
+    }
+
+    if (user.isDeleted) {
+        throw new AppError(status.BAD_REQUEST, "Cannot update deleted user");
+    }
+
+    const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { status: payload.status },
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            status: true,
+            emailVerified: true,
+            Role: true,
+        },
+    });
+
+    return updatedUser;
+};
+
+const deleteUser = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            admin: true,
+            provider: true,
+            client: true,
+        },
+    });
+
+    if (!user) {
+        throw new AppError(status.NOT_FOUND, "User not found");
+    }
+
+    if (user.isDeleted) {
+        throw new AppError(status.BAD_REQUEST, "User already deleted");
+    }
+
+    // Soft delete user and related records
+    await prisma.$transaction(async (tx) => {
+        if (user.admin) {
+            await tx.admin.update({
+                where: { userId },
+                data: { isDeleted: true },
+            });
+        }
+        if (user.provider) {
+            await tx.provider.update({
+                where: { userId },
+                data: { isDeleted: true },
+            });
+        }
+        if (user.client) {
+            await tx.client.update({
+                where: { userId },
+                data: { isDeleted: true },
+            });
+        }
+        await tx.user.update({
+            where: { id: userId },
+            data: { isDeleted: true },
+        });
+    });
+
+    return { message: "User deleted successfully" };
 };
 
 
@@ -121,8 +250,87 @@ const createAdmin = async (payload: ICreateAdminPayload) => {
 
 
 
+const getUserById = async (userId: string) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            status: true,
+            emailVerified: true,
+            Role: true,
+            createdAt: true,
+            updatedAt: true,
+            admin: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    profilePhoto: true,
+                    contactNumber: true,
+                    isDeleted: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            },
+            provider: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    profilePhoto: true,
+                    contactNumber: true,
+                    address: true,
+                    registrationNumber: true,
+                    experience: true,
+                    bio: true,
+                    isDeleted: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    specialties: {
+                        include: {
+                            specialty: true,
+                        },
+                    },
+                },
+            },
+            client: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    profilePhoto: true,
+                    contactNumber: true,
+                    address: true,
+                    isDeleted: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            },
+        },
+    });
+
+    if (!user) {
+        throw new AppError(status.NOT_FOUND, "User not found");
+    }
+
+    // Add isGoogleLogin based on client existence
+    const userWithDetails = {
+        ...user,
+        isGoogleLogin: !!user.client,
+    };
+
+    return userWithDetails;
+};
+
+
 export const UserService = {
     createProvider,
     getAllAdmins,
-    createAdmin
+    createAdmin,
+    getAllUsers,
+    updateUserStatus,
+    deleteUser,
+    getUserById,
 };

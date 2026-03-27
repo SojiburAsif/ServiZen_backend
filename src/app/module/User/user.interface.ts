@@ -22,3 +22,7 @@ export interface ICreateAdminPayload {
     address?: string;
     role: "ADMIN";
 }
+
+export interface IUpdateUserStatusPayload {
+    status: "ACTIVE" | "BLOCKED" | "DELETED";
+}
