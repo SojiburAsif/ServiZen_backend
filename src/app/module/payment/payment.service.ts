@@ -439,6 +439,31 @@ const getMyPayments = async (user: IRequestUser, query: IGetAllPaymentsQuery = {
     };
 };
 
+const getPaymentById = async (id: string, user: IRequestUser) => {
+    const payment = await prisma.payment.findUnique({
+        where: { id },
+        include: paymentListInclude,
+    });
+
+    if (!payment) {
+        throw new AppError(status.NOT_FOUND, "Payment not found");
+    }
+
+    if (user.role === Role.ADMIN) {
+        return payment;
+    }
+
+    if (user.role === Role.USER) {
+        const client = await getClientByUserIdOrThrow(user.userId);
+        if (payment.booking.client.id !== client.id) {
+            throw new AppError(status.FORBIDDEN, "Access denied");
+        }
+        return payment;
+    }
+
+    throw new AppError(status.FORBIDDEN, "Access denied");
+};
+
 const createStripeCheckoutSession = async (params: {
     bookingId: string;
     paymentId: string;
@@ -1092,6 +1117,7 @@ export const PaymentService = {
     initiatePayment,
     getAllPayments,
     getMyPayments,
+    getPaymentById,
     sendPayLaterReminderNotifications,
     cancelUnpaidBookings,
     verifyCheckoutPayment,

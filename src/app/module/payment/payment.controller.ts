@@ -29,6 +29,17 @@ const getMyPayments = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const getPaymentById = catchAsync(async (req: Request, res: Response) => {
+    const result = await PaymentService.getPaymentById(req.params.id as string, req.user);
+
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: true,
+        message: "Payment fetched successfully",
+        data: result,
+    });
+});
+
 const handleStripeWebhookEvent = async (req: Request, res: Response) => {
     const signature = req.headers["stripe-signature"] as string;
     const webhookSecret = envVars.STRIPE.STRIPE_WEBHOOK_SECRET;
@@ -72,5 +83,6 @@ const handleStripeWebhookEvent = async (req: Request, res: Response) => {
 export const PaymentController = {
     getAllPayments,
     getMyPayments,
+    getPaymentById,
     handleStripeWebhookEvent,
 };

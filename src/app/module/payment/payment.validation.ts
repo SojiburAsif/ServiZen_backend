@@ -28,6 +28,10 @@ const paymentListQuerySchema = z.object({
 	serviceId: z.string().uuid("Service id must be a valid UUID").optional(),
 });
 
+const paymentIdParamSchema = z.object({
+	id: z.string().uuid("Payment id must be a valid UUID"),
+});
+
 export const PaymentValidation = {
 	bookServiceValidationSchema: z.object({ body: createPaymentBookingBodySchema }),
 	bookWithPayLaterValidationSchema: z.object({ body: createPaymentBookingBodySchema }),
@@ -35,4 +39,5 @@ export const PaymentValidation = {
 	cancelUnpaidBookingsValidationSchema: z.object({ query: cleanupQuerySchema }),
 	getAllPaymentsValidationSchema: z.object({ query: paymentListQuerySchema }),
 	getMyPaymentsValidationSchema: z.object({ query: paymentListQuerySchema.omit({ clientId: true, status: true }) }),
+	getPaymentByIdValidationSchema: z.object({ params: paymentIdParamSchema }),
 };

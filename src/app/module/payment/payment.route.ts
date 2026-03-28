@@ -21,4 +21,11 @@ route.get(
     PaymentController.getMyPayments,
 );
 
+route.get(
+    "/:id",
+    checkAuth(Role.USER, Role.ADMIN),
+    validateRequest(PaymentValidation.getPaymentByIdValidationSchema),
+    PaymentController.getPaymentById,
+);
+
 export const PaymentRoutes = route;
