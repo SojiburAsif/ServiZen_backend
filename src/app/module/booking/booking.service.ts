@@ -327,11 +327,25 @@ const updateBooking = async (id: string, payload: IUpdateBookingPayload, user: I
         data.totalAmount = service.price;
     }
 
-    return prisma.booking.update({
-        where: { id },
-        data,
-        include: bookingDetailsInclude,
+    const result = await prisma.$transaction(async (tx) => {
+        const updatedBooking = await tx.booking.update({
+            where: { id },
+            data,
+            include: bookingDetailsInclude,
+        });
+
+        // Synchronize payment status if paymentStatus was updated
+        if (payload.paymentStatus !== undefined) {
+            await tx.payment.updateMany({
+                where: { bookingId: id },
+                data: { status: payload.paymentStatus },
+            });
+        }
+
+        return updatedBooking;
     });
+
+    return result;
 };
 
 const deleteBooking = async (id: string, user: IRequestUser) => {
