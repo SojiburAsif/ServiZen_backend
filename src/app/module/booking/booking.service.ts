@@ -1,6 +1,6 @@
 import status from "http-status";
 import { Prisma } from "../../../generated/prisma/client";
-import { BookingStatus, PaymentStatus, Role } from "../../../generated/prisma/enums";
+import { BookingStatus, PaymentStatus, Role, NotificationType } from "../../../generated/prisma/enums";
 import AppError from "../../errorHelpers/AppError";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { prisma } from "../../lib/prisma";
@@ -46,6 +46,7 @@ const getClientByUserIdOrThrow = async (userId: string) => {
         },
         select: {
             id: true,
+            name: true,
         },
     });
 
@@ -85,6 +86,7 @@ const getActiveServiceOrThrow = async (serviceId: string) => {
             id: true,
             providerId: true,
             price: true,
+            name: true,
         },
     });
 
@@ -159,21 +161,47 @@ const createBooking = async (payload: ICreateBookingPayload, user: IRequestUser)
         throw new AppError(status.CONFLICT, "You already have a booking for this service at the selected date and time");
     }
 
-    return prisma.booking.create({
-        data: {
-            bookingDate: new Date(payload.bookingDate),
-            bookingTime: payload.bookingTime,
-            address: payload.address,
-            city: payload.city,
-            latitude: payload.latitude,
-            longitude: payload.longitude,
-            serviceId: service.id,
-            providerId: service.providerId,
-            clientId: client.id,
-            totalAmount: service.price,
-        },
-        include: bookingDetailsInclude,
+    // Create booking and provider notification in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+        const booking = await tx.booking.create({
+            data: {
+                bookingDate: new Date(payload.bookingDate),
+                bookingTime: payload.bookingTime,
+                address: payload.address,
+                city: payload.city,
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+                serviceId: service.id,
+                providerId: service.providerId,
+                clientId: client.id,
+                totalAmount: service.price,
+            },
+            include: bookingDetailsInclude,
+        });
+
+        // Get provider's user ID for notification
+        const provider = await tx.provider.findUnique({
+            where: { id: service.providerId },
+            select: { userId: true, name: true },
+        });
+
+        if (provider) {
+            // Create notification for provider
+            await tx.notification.create({
+                data: {
+                    userId: provider.userId,
+                    bookingId: booking.id,
+                    type: NotificationType.BOOKING_CREATED_FOR_PROVIDER,
+                    title: "New booking assigned",
+                    message: `You have a new booking for ${service.name} on ${new Date(payload.bookingDate).toLocaleDateString()} at ${payload.bookingTime}. Client: ${client.name}, Location: ${payload.city}, Amount: ৳${service.price}`,
+                },
+            });
+        }
+
+        return booking;
     });
+
+    return result;
 };
 const getAllBookings = async (query: IGetAllBookingsQuery = {}) => {
     const page = Number(query.page ?? 1);

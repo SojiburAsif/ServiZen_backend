@@ -282,6 +282,49 @@ const createPaymentCompletedNotification = async (
     );
 };
 
+const createProviderPaymentNotification = async (
+    tx: Prisma.TransactionClient,
+    bookingId: string,
+    amount: number,
+) => {
+    const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: {
+            id: true,
+            bookingDate: true,
+            bookingTime: true,
+            provider: {
+                select: {
+                    userId: true,
+                },
+            },
+            client: {
+                select: {
+                    name: true,
+                },
+            },
+            service: {
+                select: {
+                    name: true,
+                },
+            },
+        },
+    });
+
+    if (!booking) {
+        return;
+    }
+
+    await createNotificationIfMissing(
+        tx,
+        booking.provider.userId,
+        booking.id,
+        NotificationType.BOOKING_PAYMENT_PAID_FOR_PROVIDER,
+        "Payment received",
+        `Payment of ৳${amount.toFixed(2)} received for ${booking.service.name} booking on ${booking.bookingDate.toLocaleDateString()} at ${booking.bookingTime}. Client: ${booking.client.name}`,
+    );
+};
+
 const sendPayLaterReminderNotifications = async (dueMinutes = 30, reminderBeforeMinutes = 5) => {
     const reminderStartCutoff = new Date(Date.now() - (dueMinutes - reminderBeforeMinutes) * 60 * 1000);
     const reminderEndCutoff = new Date(Date.now() - dueMinutes * 60 * 1000);
@@ -843,6 +886,7 @@ const verifyCheckoutPayment = async (bookingId: string, sessionId: string, user:
             if (markedAsPaid) {
                 await addProviderEarningsFromBooking(tx, booking.id, payment.amount);
                 await createPaymentCompletedNotification(tx, booking.id, payment.amount);
+                await createProviderPaymentNotification(tx, booking.id, payment.amount);
             }
         }
 
@@ -859,6 +903,7 @@ const verifyCheckoutPayment = async (bookingId: string, sessionId: string, user:
 
             await addProviderEarningsFromBooking(tx, booking.id, booking.totalAmount);
             await createPaymentCompletedNotification(tx, booking.id, booking.totalAmount);
+            await createProviderPaymentNotification(tx, booking.id, booking.totalAmount);
         }
 
         await tx.booking.update({
@@ -934,6 +979,7 @@ const markBookingAsPaidFromSession = async (session: Stripe.Checkout.Session, st
 
         await addProviderEarningsFromBooking(tx, bookingId, payment.amount);
         await createPaymentCompletedNotification(tx, bookingId, payment.amount);
+        await createProviderPaymentNotification(tx, bookingId, payment.amount);
 
         await tx.booking.update({
             where: { id: bookingId },
@@ -1006,6 +1052,7 @@ const markBookingAsPaidByMetadata = async (
 
         await addProviderEarningsFromBooking(tx, bookingId, payment.amount);
         await createPaymentCompletedNotification(tx, bookingId, payment.amount);
+        await createProviderPaymentNotification(tx, bookingId, payment.amount);
 
         await tx.booking.update({
             where: { id: bookingId },
@@ -1068,6 +1115,7 @@ const syncBookingPaymentStatus = async (bookingId: string) => {
 
             await addProviderEarningsFromBooking(tx, booking.id, booking.totalAmount);
             await createPaymentCompletedNotification(tx, booking.id, booking.totalAmount);
+            await createProviderPaymentNotification(tx, booking.id, booking.totalAmount);
         } else {
             const markedAsPaid = await markPaymentAsPaidIfNeeded(tx, payment.id, {
                 paymentGatewayData: session as unknown as Prisma.InputJsonValue,
@@ -1076,6 +1124,7 @@ const syncBookingPaymentStatus = async (bookingId: string) => {
             if (markedAsPaid) {
                 await addProviderEarningsFromBooking(tx, booking.id, payment.amount);
                 await createPaymentCompletedNotification(tx, booking.id, payment.amount);
+                await createProviderPaymentNotification(tx, booking.id, payment.amount);
             }
         }
 
