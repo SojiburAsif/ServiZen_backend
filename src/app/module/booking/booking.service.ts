@@ -404,12 +404,34 @@ const deleteBooking = async (id: string, user: IRequestUser) => {
         throw new AppError(status.BAD_REQUEST, "Paid booking cannot be cancelled directly");
     }
 
-    return prisma.booking.update({
-        where: { id },
-        data: {
-            status: BookingStatus.CANCELLED,
-        },
-        include: bookingDetailsInclude,
+    // Create admin notification and update booking status in transaction
+    return prisma.$transaction(async (tx) => {
+        // Create admin notification if user cancels booking
+        if (user.role === Role.USER) {
+            const admins = await tx.admin.findMany({
+                select: { userId: true },
+            });
+
+            for (const admin of admins) {
+                await tx.notification.create({
+                    data: {
+                        userId: admin.userId,
+                        bookingId: existingBooking.id,
+                        type: NotificationType.BOOKING_CANCELLED_BY_USER,
+                        title: "Booking cancelled by user",
+                        message: `User cancelled booking for ${existingBooking.service.name} on ${new Date(existingBooking.bookingDate).toLocaleDateString()} at ${existingBooking.bookingTime}`,
+                    },
+                });
+            }
+        }
+
+        return tx.booking.update({
+            where: { id },
+            data: {
+                status: BookingStatus.CANCELLED,
+            },
+            include: bookingDetailsInclude,
+        });
     });
 };
 

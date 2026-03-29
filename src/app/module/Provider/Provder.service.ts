@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import status from "http-status";
-import { Prisma, Role, UserStatus } from "../../../generated/prisma/client";
+import { Prisma, Role, UserStatus, NotificationType } from "../../../generated/prisma/client";
 import AppError from "../../errorHelpers/AppError";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { auth } from "../../lib/auth";
@@ -128,6 +128,22 @@ const createProvider = async (payload: ICreateProviderPayload) => {
             if (specialties && specialties.length > 0) {
                 await tx.providerSpecialty.createMany({
                     data: specialties.map((sId: string) => ({ providerId: provider.id, specialtyId: sId }))
+                });
+            }
+
+            // Create admin notification for new provider
+            const admins = await tx.admin.findMany({
+                select: { userId: true },
+            });
+
+            for (const admin of admins) {
+                await tx.notification.create({
+                    data: {
+                        userId: admin.userId,
+                        type: NotificationType.REFUND_REQUEST, // Using as generic admin notification
+                        title: "New provider registered",
+                        message: `New provider ${providerInfo.name} registered with email ${providerInfo.email}`,
+                    },
                 });
             }
 

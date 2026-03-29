@@ -96,8 +96,8 @@ const getProviderNotifications = async (user: IRequestUser, query: Record<string
 };
 
 const markNotificationAsRead = async (id: string, user: IRequestUser) => {
-    if (user.role !== Role.USER && user.role !== Role.ADMIN) {
-        throw new AppError(status.FORBIDDEN, "Only user or admin can update own notifications");
+    if (user.role !== Role.USER && user.role !== Role.ADMIN && user.role !== Role.PROVIDER) {
+        throw new AppError(status.FORBIDDEN, "Only user, admin, or provider can update own notifications");
     }
 
     const notification = await prisma.notification.findFirst({
