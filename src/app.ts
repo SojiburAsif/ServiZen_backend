@@ -69,11 +69,22 @@ app.use(cookieParser())
 
 app.use("/api/v1", IndexRoutes);
 
+/**
+ * Health check endpoint
+ * Returns server status and basic information
+ */
 app.get("/", (req: Request, res: Response) => {
-    res.status(200).json({
+    const healthCheck = {
         success: true,
-        message: "API is working",
-    });
+        message: "🚀 ServiZen API is running smoothly",
+        timestamp: new Date().toISOString(),
+        environment: envVars.NODE_ENV,
+        version: "1.0.0",
+        uptime: process.uptime(),
+        status: "healthy"
+    };
+
+    res.status(200).json(healthCheck);
 });
 
 app.use(globalErrorHandler);
