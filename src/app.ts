@@ -5,17 +5,13 @@ import { notFound } from "./app/middleware/notFound";
 import cookieParser from "cookie-parser";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./app/lib/auth";
-import path from "path/win32";
 import { envVars } from "./config/env";
 import cors from "cors";
 import { PaymentController } from "./app/module/payment/payment.controller";
 
-
-
 const app: Application = express();
 
-app.set("view engine", "ejs");
-app.set("views", path.resolve(process.cwd(), `src/app/templates`));
+// Removed EJS view engine for free server deployment compatibility
 
 // Auto-cancel unpaid bookings background job
 const setupAutoCancelJob = () => {

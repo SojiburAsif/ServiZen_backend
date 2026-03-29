@@ -25,7 +25,7 @@ export const auth = betterAuth({
         google: {
             clientId: envVars.GOOGLE_CLIENT_ID,
             clientSecret: envVars.GOOGLE_CLIENT_SECRET,
-            // callbackUrl: envVars.GOOGLE_CALLBACK_URL,
+            redirectURL: `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success`,
             mapProfileToUser: () => {
                 return {
                     role: Role.USER,
