@@ -14,7 +14,7 @@ import { IBookBookingPayload, IGetAllPaymentsQuery } from "./payment.interface";
 const DEFAULT_PAYMENT_DUE_MINUTES = 30;
 
 const getPaymentDueMinutes = () => {
-    const configured = Number(process.env.BOOKING_PAYMENT_DUE_MINUTES ?? DEFAULT_PAYMENT_DUE_MINUTES);
+    const configured = Number(envVars.BOOKING_PAYMENT_DUE_MINUTES ?? DEFAULT_PAYMENT_DUE_MINUTES);
     if (!Number.isFinite(configured) || configured < 1) {
         return DEFAULT_PAYMENT_DUE_MINUTES;
     }
