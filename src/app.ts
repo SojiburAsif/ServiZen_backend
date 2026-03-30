@@ -55,9 +55,7 @@ app.use(cors({
             envVars.FRONTEND_URL,
             envVars.BETTER_AUTH_URL,
             "http://localhost:3000",
-            "http://localhost:5000",
-            "http://localhost:3001",
-            "http://localhost:5001",
+            "https://servi-zen-fontend.vercel.app"
         ];
         
         // Allow requests with no origin (like mobile apps or curl requests)
