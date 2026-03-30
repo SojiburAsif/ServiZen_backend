@@ -49,9 +49,26 @@ const setupAutoCancelJob = () => {
 app.post("/webhook", express.raw({ type: "application/json" }), PaymentController.handleStripeWebhookEvent)
 
 app.use(cors({
-    origin: [envVars.FRONTEND_URL, envVars.BETTER_AUTH_URL, "http://localhost:3000", "http://localhost:5000"],
+    origin: (origin, callback) => {
+        // Allow list of origins
+        const allowedOrigins = [
+            envVars.FRONTEND_URL,
+            envVars.BETTER_AUTH_URL,
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "http://localhost:3001",
+            "http://localhost:5001",
+        ];
+        
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
 }))
 
