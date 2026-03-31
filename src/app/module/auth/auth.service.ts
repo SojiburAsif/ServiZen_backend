@@ -52,6 +52,15 @@ const registerUser = async (payload: IRegisterClientPayload) => {
     // Debug log to help trace issues
     console.log('Register payload:', payload, 'Resolved profilePhoto:', profilePhoto);
 
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+        where: { email }
+    });
+
+    if (existingUser) {
+        throw new AppError(status.CONFLICT, 'This email is already registered. Please try logging in instead.');
+    }
+
     let createdUserId: string | null = null;
     let createdClientId: string | null = null;
 
@@ -65,7 +74,7 @@ const registerUser = async (payload: IRegisterClientPayload) => {
         });
 
         if (!data.user) {
-            throw new Error("Failed to register patient");
+            throw new AppError(status.BAD_REQUEST, "Failed to register user. Please try again.");
         }
 
         createdUserId = data.user.id;
