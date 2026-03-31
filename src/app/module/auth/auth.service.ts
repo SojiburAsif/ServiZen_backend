@@ -162,10 +162,10 @@ const loginUser = async (payload: ILoginUserPayload) => {
     })
 
     if (data.user.status === UserStatus.BLOCKED) {
-        throw new Error("User is blocked");
+        throw new AppError(status.FORBIDDEN, "Your account has been blocked. Please contact support.");
     }
     if (data.user.isDeleted || data.user.status === UserStatus.DELETED) {
-        throw new Error("User is deleted");
+        throw new AppError(status.FORBIDDEN, "Your account has been deleted. Please contact support.");
     }
 
     const accessToken = tokenUtils.getAccessToken({

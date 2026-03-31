@@ -128,7 +128,7 @@ const generateEmailHTML = (templateName: string, templateData: any): string => {
         case 'otp':
             return generateOTPEmailHTML(templateData);
         default:
-            throw new Error(`Template ${templateName} not found`);
+            throw new AppError(status.BAD_REQUEST, `Email template '${templateName}' not found`);
     }
 };
 
