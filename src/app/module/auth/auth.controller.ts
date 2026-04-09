@@ -241,7 +241,8 @@ const googleLogin = catchAsync((req: Request, res: Response) => {
     <meta charset="UTF-8" />
     <title>Redirecting...</title>
 </head>
-<body style="background: transparent; margin: 0; padding: 0;">
+<body style="background: black; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 0; font-family: sans-serif;">
+    <h2>Redirecting...</h2>
     <script>
         const callbackURL = "${callbackURL}";
         const betterAuthUrl = "${envVars.BETTER_AUTH_URL}";
