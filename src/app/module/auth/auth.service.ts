@@ -429,10 +429,6 @@ const verifyEmail = async (email : string, otp : string) => {
 const forgetPassword = async (email : string) => {
     const isUserExist = await getUserAndValidateNotGoogleAuth(email);
 
-    if(!isUserExist.emailVerified){
-        throw new AppError(status.BAD_REQUEST, "Email not verified");
-    }
-
     if(isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED){
         throw new AppError(status.NOT_FOUND, "User not found"); 
     }
@@ -446,10 +442,6 @@ const forgetPassword = async (email : string) => {
 
 const resetPassword = async (email : string, otp : string, newPassword : string) => {
     const isUserExist = await getUserAndValidateNotGoogleAuth(email);
-
-    if (!isUserExist.emailVerified) {
-        throw new AppError(status.BAD_REQUEST, "Email not verified");
-    }
 
     if (isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED) {
         throw new AppError(status.NOT_FOUND, "User not found");
@@ -549,6 +541,24 @@ const googleLoginSuccessF = async (session : Record<string, any>) =>{
     }
 }
 
+const sendVerificationEmailOTP = async (email: string) => {
+    const isUserExist = await getUserAndValidateNotGoogleAuth(email);
+    
+    if (isUserExist.emailVerified) {
+        throw new AppError(status.BAD_REQUEST, "Email is already verified");
+    }
+
+    if (isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED) {
+        throw new AppError(status.NOT_FOUND, "User not found");
+    }
+
+    await auth.api.sendVerificationOTP({
+        body: {
+            email,
+            type: "email-verification"
+        }
+    } as any);
+}
 
 export const AuthService = {
     registerUser,
@@ -559,6 +569,7 @@ export const AuthService = {
     changePassword,
     logoutUser,
     verifyEmail,
+    sendVerificationEmailOTP,
     forgetPassword,
     resetPassword,
     googleLoginSuccessF,

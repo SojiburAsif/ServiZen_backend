@@ -18,7 +18,7 @@ export const auth = betterAuth({
     }),
     emailAndPassword: {
         enabled: true,
-        requireEmailVerification: true,
+        requireEmailVerification: false,
     },
 
     socialProviders: {
@@ -39,8 +39,9 @@ export const auth = betterAuth({
         }
     },
     emailVerification: {
-        sendOnSignUp: true,
-        sendOnSignIn: true,
+        requireEmailVerification: false,
+        sendOnSignUp: false,
+        sendOnSignIn: false,
         autoSignInAfterVerification: true,
     },
 
@@ -92,6 +93,7 @@ export const auth = betterAuth({
         emailOTP({
             overrideDefaultEmailVerification: true,
             async sendVerificationOTP({ email, otp, type }) {
+                console.log(`Sending OTP: type=${type} email=${email}`);
                 if (type === "email-verification") {
                     const user = await prisma.user.findUnique({
                         where: {
@@ -100,7 +102,7 @@ export const auth = betterAuth({
                     })
 
                     if (user && !user.emailVerified && user.Role !== Role.ADMIN) {
-                        sendEmail({
+                        await sendEmail({
                             to: email,
                             subject: "Verify your email",
                             templateName: "otp",
@@ -110,7 +112,7 @@ export const auth = betterAuth({
                             }
                         })
                     }
-                } else if (type === "forget-password") {
+                    } else if (type === "forget-password") {
                     const user = await prisma.user.findUnique({
                         where: {
                             email,
@@ -118,7 +120,7 @@ export const auth = betterAuth({
                     })
 
                     if (user) {
-                        sendEmail({
+                        await sendEmail({
                             to: email,
                             subject: "Password Reset OTP",
                             templateName: "otp",

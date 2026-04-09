@@ -317,7 +317,7 @@ var checkAuth = (...authRoles) => async (req, res, next) => {
   try {
     const sessionToken = CookieUtils.getCookie(req, "better-auth.session_token");
     if (!sessionToken) {
-      throw new Error("Unauthorized access! No session token provided.");
+      throw new AppError_default(status2.UNAUTHORIZED, "Unauthorized access! No session token provided.");
     }
     if (sessionToken) {
       const sessionExists = await prisma.session.findFirst({
@@ -601,7 +601,7 @@ var generateEmailHTML = (templateName, templateData) => {
     case "otp":
       return generateOTPEmailHTML(templateData);
     default:
-      throw new Error(`Template ${templateName} not found`);
+      throw new AppError_default(status3.BAD_REQUEST, `Email template '${templateName}' not found`);
   }
 };
 var sendEmail = async ({ subject, templateData, templateName, to, attachments }) => {
@@ -635,7 +635,7 @@ var auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true
+    requireEmailVerification: false
   },
   socialProviders: {
     google: {
@@ -655,8 +655,9 @@ var auth = betterAuth({
     }
   },
   emailVerification: {
-    sendOnSignUp: true,
-    sendOnSignIn: true,
+    requireEmailVerification: false,
+    sendOnSignUp: false,
+    sendOnSignIn: false,
     autoSignInAfterVerification: true
   },
   user: {
@@ -704,6 +705,7 @@ var auth = betterAuth({
     emailOTP({
       overrideDefaultEmailVerification: true,
       async sendVerificationOTP({ email, otp, type }) {
+        console.log(`Sending OTP: type=${type} email=${email}`);
         if (type === "email-verification") {
           const user = await prisma.user.findUnique({
             where: {
@@ -711,7 +713,7 @@ var auth = betterAuth({
             }
           });
           if (user && !user.emailVerified && user.Role !== Role.ADMIN) {
-            sendEmail({
+            await sendEmail({
               to: email,
               subject: "Verify your email",
               templateName: "otp",
@@ -728,7 +730,7 @@ var auth = betterAuth({
             }
           });
           if (user) {
-            sendEmail({
+            await sendEmail({
               to: email,
               subject: "Password Reset OTP",
               templateName: "otp",
@@ -856,6 +858,12 @@ var registerUser = async (payload) => {
   const { name, email, password, contactNumber, address } = payload;
   const profilePhoto = payload.profilePhoto || payload.image || null;
   console.log("Register payload:", payload, "Resolved profilePhoto:", profilePhoto);
+  const existingUser = await prisma.user.findUnique({
+    where: { email }
+  });
+  if (existingUser) {
+    throw new AppError_default(status4.CONFLICT, "This email is already registered. Please try logging in instead.");
+  }
   let createdUserId = null;
   let createdClientId = null;
   try {
@@ -867,7 +875,7 @@ var registerUser = async (payload) => {
       }
     });
     if (!data.user) {
-      throw new Error("Failed to register patient");
+      throw new AppError_default(status4.BAD_REQUEST, "Failed to register user. Please try again.");
     }
     createdUserId = data.user.id;
     if (profilePhoto) {
@@ -939,10 +947,10 @@ var loginUser = async (payload) => {
     }
   });
   if (data.user.status === UserStatus.BLOCKED) {
-    throw new Error("User is blocked");
+    throw new AppError_default(status4.FORBIDDEN, "Your account has been blocked. Please contact support.");
   }
   if (data.user.isDeleted || data.user.status === UserStatus.DELETED) {
-    throw new Error("User is deleted");
+    throw new AppError_default(status4.FORBIDDEN, "Your account has been deleted. Please contact support.");
   }
   const accessToken = tokenUtils.getAccessToken({
     userId: data.user.id,
@@ -1160,9 +1168,6 @@ var verifyEmail = async (email, otp) => {
 };
 var forgetPassword = async (email) => {
   const isUserExist = await getUserAndValidateNotGoogleAuth(email);
-  if (!isUserExist.emailVerified) {
-    throw new AppError_default(status4.BAD_REQUEST, "Email not verified");
-  }
   if (isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED) {
     throw new AppError_default(status4.NOT_FOUND, "User not found");
   }
@@ -1174,9 +1179,6 @@ var forgetPassword = async (email) => {
 };
 var resetPassword = async (email, otp, newPassword) => {
   const isUserExist = await getUserAndValidateNotGoogleAuth(email);
-  if (!isUserExist.emailVerified) {
-    throw new AppError_default(status4.BAD_REQUEST, "Email not verified");
-  }
   if (isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED) {
     throw new AppError_default(status4.NOT_FOUND, "User not found");
   }
@@ -1262,6 +1264,21 @@ var googleLoginSuccessF = async (session) => {
     refreshToken
   };
 };
+var sendVerificationEmailOTP = async (email) => {
+  const isUserExist = await getUserAndValidateNotGoogleAuth(email);
+  if (isUserExist.emailVerified) {
+    throw new AppError_default(status4.BAD_REQUEST, "Email is already verified");
+  }
+  if (isUserExist.isDeleted || isUserExist.status === UserStatus.DELETED) {
+    throw new AppError_default(status4.NOT_FOUND, "User not found");
+  }
+  await auth.api.sendVerificationOTP({
+    body: {
+      email,
+      type: "email-verification"
+    }
+  });
+};
 var AuthService = {
   registerUser,
   loginUser,
@@ -1271,6 +1288,7 @@ var AuthService = {
   changePassword,
   logoutUser,
   verifyEmail,
+  sendVerificationEmailOTP,
   forgetPassword,
   resetPassword,
   googleLoginSuccessF
@@ -1447,121 +1465,57 @@ var resetPassword2 = catchAsync(
     });
   }
 );
+var sendVerificationEmailOTP2 = catchAsync(
+  async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+      throw new AppError_default(status5.BAD_REQUEST, "Email is required");
+    }
+    await AuthService.sendVerificationEmailOTP(email);
+    sendResponse(res, {
+      httpStatusCode: status5.OK,
+      success: true,
+      message: "Verification OTP sent successfully"
+    });
+  }
+);
 var googleLogin = catchAsync((req, res) => {
   const callbackParam = req.query.callbackURL || req.query.redirect || "/dashboard";
   const encodedCallbackPath = encodeURIComponent(callbackParam);
   const callbackURL = `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success?redirect=${encodedCallbackPath}`;
   res.send(`
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ServiZen - Authentication</title>
-    <style>
-        :root {
-            --primary: #10b981;
-            --bg: #f9fafb;
-        }
-        body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: var(--bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #374151;
-        }
-        .card {
-            background: white;
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            text-align: center;
-            max-width: 360px;
-            width: 90%;
-            border: 1px solid #f3f4f6;
-        }
-        h2 {
-            font-size: 18px;
-            font-weight: 500;
-            margin: 0 0 8px 0;
-            color: #111827;
-        }
-        p {
-            font-size: 13px;
-            color: #6b7280;
-            margin: 0 0 24px 0;
-        }
-        .spinner {
-            width: 28px;
-            height: 28px;
-            border: 2px solid #f3f4f6;
-            border-top: 2px solid var(--primary);
-            border-radius: 50%;
-            margin: 0 auto;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        #error-msg {
-            color: #ef4444;
-            font-size: 12px;
-            margin-top: 16px;
-            display: none;
-        }
-    </style>
+    <title>Redirecting...</title>
 </head>
-<body>
-    <div class="card">
-        <div class="spinner"></div>
-        <div style="margin-top: 20px;">
-            <h2>Connecting to Google</h2>
-            <p>Securing your session, please wait...</p>
-        </div>
-        <div id="error-msg">Connection failed. Please try again.</div>
-    </div>
-
+<body style="background: transparent; margin: 0; padding: 0;">
     <script>
-        function loginWithGoogle() {
-            const callbackURL = "${callbackURL}";
-            const betterAuthUrl = "${envVars.BETTER_AUTH_URL}";
-            const signInEndpoint = betterAuthUrl + "/api/auth/sign-in/social"; 
-            const errorElement = document.getElementById('error-msg');
+        const callbackURL = "${callbackURL}";
+        const betterAuthUrl = "${envVars.BETTER_AUTH_URL}";
+        const signInEndpoint = betterAuthUrl + "/api/auth/sign-in/social"; 
 
-            fetch(signInEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    provider: 'google',
-                    callbackURL: callbackURL
-                })
+        fetch(signInEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                provider: 'google',
+                callbackURL: callbackURL
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.url) {
-                    window.location.href = data.url;
-                } else {
-                    showError('Unable to reach Google. Try again.');
-                }
-            })
-            .catch(error => {
-                showError('Network error: ' + error.message);
-            });
-        }
-
-        function showError(msg) {
-            const errorElement = document.getElementById('error-msg');
-            errorElement.textContent = msg;
-            errorElement.style.display = 'block';
-            document.querySelector('.spinner').style.display = 'none';
-        }
-
-        window.onload = loginWithGoogle;
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.url) {
+                window.location.replace(data.url);
+            } else {
+                window.location.replace("${envVars.FRONTEND_URL}/login?error=oauth_init_failed");
+            }
+        })
+        .catch(() => {
+            window.location.replace("${envVars.FRONTEND_URL}/login?error=oauth_network_failed");
+        });
     </script>
 </body>
 </html>
@@ -1590,7 +1544,12 @@ var googleLoginSuccess = catchAsync(async (req, res) => {
   tokenUtils.setRefreshTokenCookie(res, refreshToken);
   const isValidRedirectPath = redirectPath.startsWith("/") && !redirectPath.startsWith("//");
   const finalRedirectPath = isValidRedirectPath ? redirectPath : "/dashboard";
-  res.redirect(`${envVars.FRONTEND_URL}${finalRedirectPath}`);
+  const frontendSafeUrl = new URL("/api/auth/google-success", envVars.FRONTEND_URL);
+  frontendSafeUrl.searchParams.set("accessToken", accessToken);
+  frontendSafeUrl.searchParams.set("refreshToken", refreshToken);
+  frontendSafeUrl.searchParams.set("sessionToken", sessionToken);
+  frontendSafeUrl.searchParams.set("redirect", finalRedirectPath);
+  res.redirect(frontendSafeUrl.toString());
 });
 var handleOAuthError = catchAsync((req, res) => {
   const error = req.query.error || "oauth_failed";
@@ -1605,6 +1564,7 @@ var AuthController = {
   changePassword: changePassword2,
   logoutUser: logoutUser2,
   verifyEmail: verifyEmail2,
+  sendVerificationEmailOTP: sendVerificationEmailOTP2,
   forgetPassword: forgetPassword2,
   resetPassword: resetPassword2,
   googleLogin,
@@ -1657,6 +1617,7 @@ router2.post("/refresh-token", AuthController.getNewToken);
 router2.post("/change-password", checkAuth(Role.USER, Role.ADMIN, Role.PROVIDER), AuthController.changePassword);
 router2.post("/logout", checkAuth(Role.USER, Role.ADMIN, Role.PROVIDER), AuthController.logoutUser);
 router2.post("/verify-email", AuthController.verifyEmail);
+router2.post("/send-verify-email-otp", AuthController.sendVerificationEmailOTP);
 router2.post("/forget-password", AuthController.forgetPassword);
 router2.post("/reset-password", AuthController.resetPassword);
 router2.get("/login/google", AuthController.googleLogin);
@@ -5241,9 +5202,7 @@ app.use(cors({
       envVars.FRONTEND_URL,
       envVars.BETTER_AUTH_URL,
       "http://localhost:3000",
-      "http://localhost:5000",
-      "http://localhost:3001",
-      "http://localhost:5001"
+      "https://servi-zen-fontend.vercel.app"
     ];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);

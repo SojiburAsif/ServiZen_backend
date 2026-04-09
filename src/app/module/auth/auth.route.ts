@@ -25,6 +25,8 @@ router.post("/logout", checkAuth(Role.USER, Role.ADMIN , Role.PROVIDER), AuthCon
 
 router.post("/verify-email", AuthController.verifyEmail)
 
+router.post("/send-verify-email-otp", AuthController.sendVerificationEmailOTP)
+
 router.post("/forget-password", AuthController.forgetPassword)
 
 router.post("/reset-password", AuthController.resetPassword)
